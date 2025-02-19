@@ -1,4 +1,8 @@
+#ifndef PINYIN_IME_TRIE
+#define PINYIN_IME_TRIE
+
 #include <string>
+#include <stack>
 #include <memory>
 #include <exception>
 #include <utility>
@@ -8,6 +12,86 @@ namespace pinyin_ime {
 template <class Data>
 class BasicTrie {
 public:
+    enum class MatchResult {
+        Miss, Partial, Extendible, Complete
+    };
+
+    template <class D>
+    class Iterator {
+    public:
+        D& operator*() const
+        {
+            if (!m_node)
+                throw std::logic_error{ "Iterator invalid" };
+            return *m_node->m_table[m_idx].second;
+        }
+
+        D* operator->() const
+        {
+            if (!m_node)
+                throw std::logic_error{ "Iterator invalid" };
+            return m_node->m_table[m_idx].second.get();
+        }
+
+        std::string string() const
+        {
+            return m_prefix + static_cast<char>(m_idx + 'a');
+        }
+
+        Iterator& operator++()
+        {
+            m_node = nullptr;
+            m_idx = 0;
+            m_prefix.clear();
+            while (!m_stack.empty()) {
+                m_node = std::get<0>(m_stack.top());
+                m_idx = std::get<1>(m_stack.top());
+                m_prefix = std::move(std::get<2>(m_stack.top()));
+                m_stack.pop();
+
+                for (auto i = m_idx + 1; i < s_table_size; ++i) {
+                    if (m_node->m_table[i].first || m_node->m_table[i].second) {
+                        m_stack.push({ m_node, i, m_prefix});
+                        break;
+                    }
+                }
+
+                auto &end{ m_node->m_table[m_idx] };
+                if (end.first)
+                    m_stack.push({ end.first.get(), 0, m_prefix + static_cast<char>(m_idx + 'a') });
+
+                if (end.second)
+                    break;
+
+                m_node = nullptr;
+                m_idx = 0;
+                m_prefix.clear();
+            }
+            return *this;
+        }
+
+        bool operator==(const Iterator& other) const
+        {
+            return (m_node == other.m_node && m_idx == other.m_idx);
+        }
+
+        bool operator!=(const Iterator& other) const
+        {
+            return !(*this == other);
+        }
+
+    private:
+        Iterator() = default;
+        typename BasicTrie<D>::Node *m_node{ nullptr };
+        std::stack<std::tuple<decltype(m_node), uint8_t, std::string>> m_stack;
+        uint8_t m_idx{ 0 };
+        std::string m_prefix;
+        static constexpr size_t s_table_size{ 
+            sizeof(BasicTrie<D>::Node::m_table) / sizeof(BasicTrie<D>::Node::m_table[0])
+        };
+        friend class BasicTrie<D>;
+    };
+
     template <class... Args>
     void add(std::string_view str, Args&&... args)
     {
@@ -22,32 +106,32 @@ public:
 
     void remove(std::string_view str) noexcept
     {
-        if (str.empty() || !root_)
+        if (str.empty() || !m_root)
             return;
-        Node *parent = nullptr;
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end = node->table_[idx];
+        Node *parent{ nullptr };
+        Node *node{ m_root.get() };
+        size_t str_size{ str.size() };
+        for (size_t i{ 0 }; i < str_size; ++i) {
+            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            auto &end{ node->m_table[idx] };
             if (i == str_size - 1) {
                 if (!end.second)
                     return;
                 end.second.reset();
-                for (auto &p : node->table_) {
+                for (auto &p : node->m_table) {
                     if (p.first || p.second)
                         return;
                 }
                 if (parent) {
-                    for (auto &p : parent->table_) {
+                    for (auto &p : parent->m_table) {
                         if (p.first.get() == node)
                             p.first.reset();
                     }
                 } else {
-                    root_.reset();
+                    m_root.reset();
                 }
             } else {
-                auto &next_node = end.first;
+                auto &next_node{ end.first };
                 if (!next_node)
                     return;
                 parent = node;
@@ -56,44 +140,61 @@ public:
         }
     }
 
-    bool contains(std::string_view str)
+    MatchResult match(std::string_view str)
     {
-        if (str.empty() || !root_)
-            return false;
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end_pair = node->table_[idx];
+        if (str.empty() || !m_root)
+            return MatchResult::Miss;
+        Node *node{ m_root.get() };
+        size_t str_size{ str.size() };
+        for (size_t i{ 0 }; i < str_size; ++i) {
+            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            auto &end_pair{ node->m_table[idx] };
             if (i == str_size - 1) {
-                if (!end_pair.second)
-                    return false;
-                return true;
+                if (end_pair.second) {
+                    if (end_pair.first)
+                        return MatchResult::Extendible;
+                    else
+                        return MatchResult::Complete;
+                } else {
+                    if (end_pair.first)
+                        return MatchResult::Partial;
+                    else
+                        return MatchResult::Miss;
+                }
             } else {
-                auto &next_node = end_pair.first;
+                auto &next_node{ end_pair.first };
                 if (!next_node)
-                    return false;
+                    return MatchResult::Miss;
                 node = next_node.get();
             }
         }
-        return false; // should not reach here
+        return MatchResult::Miss; // should not reach here
+    }
+
+    bool contains(std::string_view str)
+    {
+        auto r = match(str);
+        if (r == MatchResult::Complete ||
+            r == MatchResult::Extendible)
+            return true;
+        return false;
     }
 
     Data& data(std::string_view str)
     {
-        if (str.empty() || !root_)
+        if (str.empty() || !m_root)
             throw std::logic_error{ "String invalid" };
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end_pair = node->table_[idx];
+        Node *node{ m_root.get() };
+        size_t str_size{ str.size() };
+        for (size_t i{ 0 }; i < str_size; ++i) {
+            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            auto &end{ node->m_table[idx] };
             if (i == str_size - 1) {
-                if (!end_pair.second)
+                if (!end.second)
                     throw std::logic_error{ "String invalid" };
-                return *(end_pair.second);
+                return *(end.second);
             } else {
-                auto &next_node = end_pair.first;
+                auto &next_node{ end.first };
                 if (!next_node)
                     throw std::logic_error{ "String invalid" };
                 node = next_node.get();
@@ -102,25 +203,73 @@ public:
         throw std::logic_error{ "String invalid" }; // should not reach here
     }
 
+    bool empty() const
+    {
+        return !m_root;
+    }
+
+    Iterator<Data> begin() const
+    {
+        Iterator<Data> iter;
+        if (!m_root)
+            return iter;
+        if (m_root->m_table[0].second) {
+            iter.m_stack.push({ m_root.get(), 1, "" });
+            if (m_root->m_table[0].first) {
+                iter.m_stack.push({ m_root->m_table[0].first.get(), 0, "a" });
+            }
+            iter.m_node = m_root.get();
+        } else {
+            iter.m_stack.push({ m_root.get(), 0, "" });
+            ++iter;
+        }
+        return iter;
+    }
+
+    Iterator<Data> end() const
+    {
+        return Iterator<Data>{};
+    }
+
+    std::ostream& print(std::ostream &os, std::string_view separator) const
+    {
+        bool need_separator{ false };
+        for (auto i = begin(); i != end(); ++i) {
+            if (!need_separator) {
+                need_separator = true;
+                os << i.string();
+            } else {
+                os << separator << i.string();
+            }
+        }
+        return os;
+    }
+
+    template <class U>
+    friend std::ostream& operator<<(std::ostream &os, const BasicTrie<U> &trie)
+    {
+        return trie.print(os, " ");
+    }
+
 private:
     template <class... Args>
     void add_or_assign(std::string_view str, bool assign, Args&&... args)
     {
         if (str.empty())
             return;
-        if (!root_)
-            root_.reset(new Node{});
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end_pair = node->table_[idx];
+        if (!m_root)
+            m_root.reset(new Node{});
+        Node *node{ m_root.get() };
+        size_t str_size{ str.size() };
+        for (size_t i{ 0 }; i < str_size; ++i) {
+            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            auto &end{ node->m_table[idx] };
             if (i == str_size - 1) {
-                if (end_pair.second && !assign)
+                if (end.second && !assign)
                     throw std::logic_error{ "String exist" };
-                end_pair.second.reset(new Data{ std::forward<Args>(args)... });
+                end.second.reset(new Data{ std::forward<Args>(args)... });
             } else {
-                auto &next_node = end_pair.first;
+                auto &next_node{ end.first };
                 if (!next_node)
                     next_node.reset(new Node{});
                 node = next_node.get();
@@ -128,105 +277,14 @@ private:
         }
     }
     struct Node {
-        std::pair<std::unique_ptr<Node>, std::unique_ptr<Data>> table_[26];
+        std::pair<std::unique_ptr<Node>, std::unique_ptr<Data>> m_table[26];
     };
-    std::unique_ptr<Node> root_;
-};
-
-template <>
-class BasicTrie<bool> {
-public:
-    void add(std::string_view str)
-    {
-        if (str.empty())
-            return;
-        if (!root_)
-            root_.reset(new Node{});
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end_pair = node->table_[idx];
-            if (i == str_size - 1) {
-                end_pair.second = true;
-            } else {
-                auto &next_node = end_pair.first;
-                if (!next_node)
-                    next_node.reset(new Node{});
-                node = next_node.get();
-            }
-        }
-    }
-
-    void remove(std::string_view str) noexcept
-    {
-        if (str.empty() || !root_)
-            return;
-        Node *parent = nullptr;
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end = node->table_[idx];
-            if (i == str_size - 1) {
-                if (!end.second)
-                    return;
-                end.second = false;
-                for (auto &p : node->table_) {
-                    if (p.first || p.second)
-                        return;
-                }
-                if (parent) {
-                    for (auto &p : parent->table_) {
-                        if (p.first.get() == node)
-                            p.first.reset();
-                    }
-                } else {
-                    root_.reset();
-                }
-            } else {
-                auto &next_node = end.first;
-                if (!next_node)
-                    return;
-                parent = node;
-                node = next_node.get();
-            }
-        }
-    }
-
-    bool contains(std::string_view str)
-    {
-        if (str.empty() || !root_)
-            return false;
-        Node *node = root_.get();
-        auto str_size = str.size();
-        for (size_t i = 0; i < str_size; ++i) {
-            size_t idx = static_cast<size_t>(str[i] - 'a') % 26;
-            auto &end_pair = node->table_[idx];
-            if (i == str_size - 1) {
-                return end_pair.second;
-            } else {
-                auto &next_node = end_pair.first;
-                if (!next_node)
-                    return false;
-                node = next_node.get();
-            }
-        }
-        return false; // should not reach here
-    }
-
-    bool data(std::string_view str)
-    {
-        return contains(str);
-    }
-
-private:
-    struct Node {
-        std::pair<std::unique_ptr<Node>, bool> table_[26];
-    };
-    std::unique_ptr<Node> root_;
+    std::unique_ptr<Node> m_root;
+    friend class BasicTrie<Data>::Iterator<Data>;
 };
 
 using Trie = BasicTrie<bool>;
 
 } // namespace pinyin_ime
+
+#endif // PINYIN_IME_TRIE
