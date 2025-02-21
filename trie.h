@@ -12,10 +12,6 @@ namespace pinyin_ime {
 template <class Data>
 class BasicTrie {
 public:
-    enum class MatchResult {
-        Miss, Partial, Extendible, Complete
-    };
-
     template <class D>
     class Iterator {
     public:
@@ -92,16 +88,50 @@ public:
         friend class BasicTrie<D>;
     };
 
+    enum class MatchResult {
+        Miss, Partial, Extendible, Complete
+    };
+
     template <class... Args>
-    void add(std::string_view str, Args&&... args)
+    Data& add_if_miss(std::string_view str, Args&&... args)
     {
-        add_or_assign(str, false, std::forward<Args>(args)...);
+        if (str.empty())
+            throw std::logic_error{ "String is empty" };
+        if (!m_root)
+            m_root.reset(new Node{});
+        Node *node{ m_root.get() };
+        size_t str_size{ str.size() };
+        typename Node::End *end{ nullptr };
+        for (size_t i{ 0 }; i < str_size; ++i) {
+            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            end = &(node->m_table[idx]);
+            if (i == str_size - 1) {
+                if (end->second)
+                    break;
+                end->second.reset(new Data{ std::forward<Args>(args)... });
+                break;
+            } else {
+                auto &next_node{ end->first };
+                if (!next_node)
+                    next_node.reset(new Node{});
+                node = next_node.get();
+            }
+        }
+        if (end)
+            return *(end->second);
+        throw std::logic_error{ "Add failed! Should not happen!" };
     }
 
     template <class... Args>
-    void add_or_assign(std::string_view str, Args&&... args)
+    Data& add(std::string_view str, Args&&... args)
     {
-        add_or_assign(str, true, std::forward<Args>(args)...);
+        return add_or_assign(str, false, std::forward<Args>(args)...);
+    }
+
+    template <class... Args>
+    Data& add_or_assign(std::string_view str, Args&&... args)
+    {
+        return add_or_assign(str, true, std::forward<Args>(args)...);
     }
 
     void remove(std::string_view str) noexcept
@@ -140,7 +170,7 @@ public:
         }
     }
 
-    MatchResult match(std::string_view str)
+    MatchResult match(std::string_view str) const
     {
         if (str.empty() || !m_root)
             return MatchResult::Miss;
@@ -171,7 +201,7 @@ public:
         return MatchResult::Miss; // should not reach here
     }
 
-    bool contains(std::string_view str)
+    bool contains(std::string_view str) const
     {
         auto r = match(str);
         if (r == MatchResult::Complete ||
@@ -180,7 +210,7 @@ public:
         return false;
     }
 
-    Data& data(std::string_view str)
+    Data& data(std::string_view str) const
     {
         if (str.empty() || !m_root)
             throw std::logic_error{ "String invalid" };
@@ -226,7 +256,7 @@ public:
         return iter;
     }
 
-    Iterator<Data> end() const
+    constexpr Iterator<Data> end() const
     {
         return Iterator<Data>{};
     }
@@ -234,12 +264,13 @@ public:
     std::ostream& print(std::ostream &os, std::string_view separator) const
     {
         bool need_separator{ false };
-        for (auto i = begin(); i != end(); ++i) {
+        auto end_iter = end();
+        for (auto iter = begin(); iter != end_iter; ++iter) {
             if (!need_separator) {
                 need_separator = true;
-                os << i.string();
+                os << iter.string();
             } else {
-                os << separator << i.string();
+                os << separator << iter.string();
             }
         }
         return os;
@@ -253,31 +284,37 @@ public:
 
 private:
     template <class... Args>
-    void add_or_assign(std::string_view str, bool assign, Args&&... args)
+    Data& add_or_assign(std::string_view str, bool assign, Args&&... args)
     {
         if (str.empty())
-            return;
+            throw std::logic_error{ "String is empty" };
         if (!m_root)
             m_root.reset(new Node{});
         Node *node{ m_root.get() };
         size_t str_size{ str.size() };
+        decltype(Node::m_table[0]) *end{ nullptr };
         for (size_t i{ 0 }; i < str_size; ++i) {
             uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
-            auto &end{ node->m_table[idx] };
+            end = &(node->m_table[idx]);
             if (i == str_size - 1) {
-                if (end.second && !assign)
+                if (end->second && !assign)
                     throw std::logic_error{ "String exist" };
-                end.second.reset(new Data{ std::forward<Args>(args)... });
+                end->second.reset(new Data{ std::forward<Args>(args)... });
+                break;
             } else {
-                auto &next_node{ end.first };
+                auto &next_node{ end->first };
                 if (!next_node)
                     next_node.reset(new Node{});
                 node = next_node.get();
             }
         }
+        if (end)
+            return *(end->second);
+        throw std::logic_error{ "Add failed! Should not happen!" };
     }
     struct Node {
-        std::pair<std::unique_ptr<Node>, std::unique_ptr<Data>> m_table[26];
+        using End = std::pair<std::unique_ptr<Node>, std::unique_ptr<Data>>;
+        End m_table[26];
     };
     std::unique_ptr<Node> m_root;
     friend class BasicTrie<Data>::Iterator<Data>;
