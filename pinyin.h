@@ -12,38 +12,55 @@ namespace pinyin_ime {
 class PinYin {
 public:
     enum class TokenType {
-        Invalid, Initial, Syllable
+        Invalid, Initial, Extendible, Complete
     };
     struct Token {
-        std::string_view m_token;
-        TokenType m_type;
+        Token() = default;
+        Token(size_t off, TokenType type, std::string_view str)
+            : m_offset{ off }, m_type{ type }, m_token{ str }
+        {}
+        size_t m_offset{ 0 };
+        TokenType m_type{ TokenType::Invalid };
+        std::string m_token;
     };
     PinYin() = default;
-    PinYin(std::string pinyin)
-        : m_pinyin{ pinyin }
+    PinYin(std::string str)
+        : m_str{ str }
     {
         update_tokens();
     }
     std::string::const_iterator begin() const
     {
-        return m_pinyin.cbegin();
+        return m_str.cbegin();
     }
     std::string::const_iterator end() const
     {
-        return m_pinyin.cend();
+        return m_str.cend();
     }
-    const char& operator[](std::string::size_type i) const
+    const char& operator[](size_t i) const
     {
-        return m_pinyin[i];
+        return m_str[i];
     }
-    PinYin& insert(std::string::size_type pos, std::string_view str)
+    size_t fixed_tokens_count() const
     {
-        m_pinyin.insert(pos, str);
-        return *this;
+        return m_fixed_tokens;
     }
-    std::string::const_iterator insert(const std::string::const_iterator &iter, std::string_view str)
+    void fix_front_tokens(size_t count)
     {
-        return m_pinyin.insert(iter, str.begin(), str.end());
+        auto tokens_count = m_tokens.size();
+        if (count > tokens_count)
+            count = tokens_count;
+        m_fixed_tokens = count;
+        if (m_fixed_tokens == 0) {
+            m_fixed_letters = 0;
+            return;
+        }
+        if (m_fixed_tokens == tokens_count) {
+            m_fixed_letters = m_str.size();
+            return;
+        }
+        auto &token = m_tokens[m_fixed_tokens];
+        m_fixed_letters = token.m_offset + token.m_token.size();
     }
     const Trie& syllableTrie() const
     {
@@ -61,14 +78,44 @@ public:
     {
         return m_tokens;
     }
+    const std::vector<Token>& backspace(size_t count = 1)
+    {
+        size_t free_letters = m_str.size() - m_fixed_letters;
+        if (count == 0 || free_letters == 0)
+            return m_tokens;
+        if (count > free_letters)
+            count = free_letters;
+        if (count == free_letters) {
+            m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
+            m_fixed_letters = m_str.size();
+            return m_tokens;
+        }
+        m_str.erase(m_str.size() - count);
+        return update_tokens();
+    }
+    const std::vector<Token>& insert(size_t pos, std::string_view str)
+    {
+        if (pos < m_fixed_letters)
+            throw std::logic_error{ "Can't insert before fixed position" };
+        m_str.insert(pos, str);
+        return update_tokens();
+    }
+    const std::vector<Token>& insert(const std::string::const_iterator &iter, std::string_view str)
+    {
+        auto offset = iter - begin();
+        if (offset < m_fixed_letters)
+            throw std::logic_error{ "Can't insert before fixed position" };
+        m_str.insert(iter, str.begin(), str.end());
+        return update_tokens();
+    }
     const std::vector<Token>& push_back(char ch)
     {
-        m_pinyin.push_back(ch);
+        m_str.push_back(ch);
         return update_tokens();
     }
     const std::vector<Token>& push_back(std::string_view str)
     {
-        m_pinyin += str;
+        m_str += str;
         return update_tokens();
     }
 private:
@@ -76,74 +123,83 @@ private:
     {
         using TokenList = std::vector<Token>;
         using MR = Trie::MatchResult;
+
+        if (m_fixed_letters == m_str.size())
+            throw std::logic_error{ "All pinyin is fixed, can't update tokens" };
         std::vector<TokenList> candidates;
         std::vector<TokenList> pending_tasks(1);
+        std::string_view free_str{ m_str.begin() + m_fixed_letters, m_str.end() };
 
         while (!pending_tasks.empty()) {
+            size_t begin_pos = m_fixed_letters;
+            size_t end_pos = m_str.size();
+            size_t start_pos = begin_pos;
+            size_t cur_pos = start_pos;
+            const char *p_str = m_str.data();
             auto list = std::move(pending_tasks.back());
             pending_tasks.pop_back();
-            auto begin_iter = m_pinyin.begin();
-            auto end_iter = m_pinyin.end();
-            auto start_iter = begin_iter;
-            auto cur_iter = start_iter;
             if (!list.empty()) {
                 auto &last_token = list.back();
-                auto offset = last_token.m_token.data() - m_pinyin.data() + last_token.m_token.size();
-                start_iter = begin_iter + offset;
-                cur_iter = start_iter;
-                begin_iter = start_iter;
+                auto offset = last_token.m_offset + last_token.m_token.size();
+                cur_pos = start_pos = begin_pos = offset;
             }
-            for (auto prev_type = TokenType::Invalid; cur_iter != end_iter;) {
-                std::string_view token{ start_iter, cur_iter + 1 };
-                if (*cur_iter == s_delim) {
-                    if (cur_iter != start_iter) {
-                        list.emplace_back(std::string_view{ start_iter, cur_iter }, prev_type);
+            for (auto prev_type = TokenType::Invalid; cur_pos != end_pos;) {
+                size_t cur_end_pos = cur_pos + 1;
+                std::string_view token{ p_str + start_pos, cur_end_pos - start_pos };
+                if (m_str[cur_pos] == s_delim) {
+                    if (cur_pos != start_pos) {
+                        list.emplace_back(start_pos, prev_type,
+                            std::string_view{ p_str + start_pos, cur_pos - start_pos }
+                        );
                     }
-                    start_iter = cur_iter + 1;
-                    cur_iter = start_iter;
+                    start_pos = cur_pos + 1;
+                    cur_pos = start_pos;
                     continue;
                 }
                 switch (s_syllable_trie.match(token)) {
                 case MR::Miss:
-                    if (cur_iter != start_iter) {
-                        list.emplace_back(std::string_view{ start_iter, cur_iter }, prev_type);
+                    if (cur_pos != start_pos) {
+                        list.emplace_back(start_pos, prev_type,
+                            std::string_view{ p_str + start_pos, cur_pos - start_pos }
+                        );
                         prev_type = TokenType::Invalid;
-                        start_iter = cur_iter;
+                        start_pos = cur_pos;
                     } else {
-                        list.emplace_back(token, TokenType::Invalid);
+                        list.emplace_back(start_pos, TokenType::Invalid,
+                            std::string_view{ p_str + start_pos, 1 }
+                        );
                         prev_type = TokenType::Invalid;
-                        start_iter = ++cur_iter;
+                        start_pos = ++cur_pos;
                     }
                 break;
                 case MR::Partial:
                     prev_type = TokenType::Initial;
-                    ++cur_iter;
+                    ++cur_pos;
                 break;
                 case MR::Extendible: {
-                    auto next_iter = cur_iter + 1;
-                    if (next_iter != end_iter) {
-                        std::string_view next_token{ start_iter, next_iter + 1 };
+                    if (cur_end_pos != end_pos) {
+                        std::string_view next_token{ p_str + start_pos, cur_end_pos - start_pos + 1 };
                         if (s_syllable_trie.match(next_token) != MR::Miss) {
                             pending_tasks.push_back(list);
-                            pending_tasks.back().emplace_back(token, TokenType::Syllable);
-                            prev_type = TokenType::Syllable;
-                            ++cur_iter;
+                            pending_tasks.back().emplace_back(start_pos, TokenType::Extendible, token);
+                            prev_type = TokenType::Extendible;
+                            ++cur_pos;
                         } else { // next_token is MR::Miss
-                            list.emplace_back(token, TokenType::Syllable);
+                            list.emplace_back(start_pos, TokenType::Extendible, token);
                             prev_type = TokenType::Invalid;
-                            start_iter = ++cur_iter;
+                            start_pos = ++cur_pos;
                         }
-                    } else { // next_iter == end_iter
-                        list.emplace_back(token, TokenType::Syllable);
+                    } else { // cur_end_pos == end_pos
+                        list.emplace_back(start_pos, TokenType::Extendible, token);
                         prev_type = TokenType::Invalid;
-                        start_iter = ++cur_iter;
+                        start_pos = ++cur_pos;
                     }
                 }
                 break;
                 case MR::Complete:
-                    list.emplace_back(token, TokenType::Syllable);
+                    list.emplace_back(start_pos, TokenType::Complete, token);
                     prev_type = TokenType::Invalid;
-                    start_iter = ++cur_iter;
+                    start_pos = ++cur_pos;
                 break;
                 }
             }
@@ -151,7 +207,7 @@ private:
         }
 
         if (candidates.empty()) {
-            m_tokens.clear();
+            m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
             return m_tokens;
         }
 
@@ -191,11 +247,20 @@ private:
                 }
             }
         }
-        m_tokens = std::move(*(winner.first));
+        if (m_fixed_tokens == 0)
+            m_tokens = std::move(*(winner.first));
+        else {
+            m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
+            m_tokens.insert(m_tokens.end(),
+                std::make_move_iterator(winner.first->begin()),
+                std::make_move_iterator(winner.first->end())
+            );
+        }
         return m_tokens;
     }
     std::vector<Token> m_tokens;
-    std::string m_pinyin;
+    std::string m_str;
+    size_t m_fixed_tokens{ 0 },  m_fixed_letters{ 0 };
     static Trie s_syllable_trie;
     static constexpr char s_delim{ '\'' };
 };
