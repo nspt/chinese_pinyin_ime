@@ -15,17 +15,16 @@ public:
     enum class MatchResult {
         Miss, Partial, Extendible, Complete
     };
-    template <class D>
     class Iterator {
     public:
-        D& operator*() const
+        Data& operator*() const
         {
             if (!m_node)
                 throw std::logic_error{ "Iterator invalid" };
             return *m_node->m_table[m_idx].second;
         }
 
-        D* operator->() const
+        Data* operator->() const
         {
             if (!m_node)
                 throw std::logic_error{ "Iterator invalid" };
@@ -81,14 +80,14 @@ public:
 
     private:
         Iterator() = default;
-        typename BasicTrie<D>::Node *m_node{ nullptr };
+        typename BasicTrie<Data>::Node *m_node{ nullptr };
         std::stack<std::tuple<decltype(m_node), uint8_t, std::string>> m_stack;
         uint8_t m_idx{ 0 };
         std::string m_prefix;
         static constexpr size_t s_table_size{ 
-            sizeof(BasicTrie<D>::Node::m_table) / sizeof(BasicTrie<D>::Node::m_table[0])
+            sizeof(BasicTrie<Data>::Node::m_table) / sizeof(BasicTrie<Data>::Node::m_table[0])
         };
-        friend class BasicTrie<D>;
+        friend class BasicTrie<Data>;
     };
 
     template <class... Args>
@@ -237,9 +236,9 @@ public:
         return !m_root;
     }
 
-    Iterator<Data> begin() const
+    Iterator begin() const
     {
-        Iterator<Data> iter;
+        Iterator iter;
         if (!m_root)
             return iter;
         if (m_root->m_table[0].second) {
@@ -255,9 +254,9 @@ public:
         return iter;
     }
 
-    constexpr Iterator<Data> end() const
+    constexpr Iterator end() const
     {
-        return Iterator<Data>{};
+        return {};
     }
 
     std::ostream& print(std::ostream &os, std::string_view separator) const
@@ -315,7 +314,6 @@ private:
         End m_table[26];
     };
     std::unique_ptr<Node> m_root;
-    friend class BasicTrie<Data>::Iterator<Data>;
 };
 
 using Trie = BasicTrie<bool>;
