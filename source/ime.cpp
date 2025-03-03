@@ -1,4 +1,5 @@
 #include "ime.h"
+#include <fstream>
 
 namespace pinyin_ime {
 
@@ -85,7 +86,7 @@ IME::CandidatesCRef IME::search_impl(PinYin::TokenSpan tokens)
     while (!tokens_for_search.empty()) {
         try {
             m_candidates.add_query(Query{ m_dict_trie, tokens_for_search.top() });
-        } catch (...) {
+        } catch (const std::exception &e) {
             // should not happen
         }
         tokens_for_search.pop();

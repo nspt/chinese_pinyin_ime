@@ -1,7 +1,6 @@
 #ifndef PINYIN_IME_IME_H
 #define PINYIN_IME_IME_H
 
-#include <fstream>
 #include <ranges>
 #include <string_view>
 #include <cerrno>

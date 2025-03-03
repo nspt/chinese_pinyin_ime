@@ -30,6 +30,7 @@ public:
     std::vector<DictItem>::const_iterator begin() const noexcept;
     std::vector<DictItem>::const_iterator end() const noexcept;
 
+    size_t size() const noexcept;
     const DictItem& operator[](size_t i) const;
 
     ItemCRefVec search(std::span<const PinYin::Token> tokens) const;

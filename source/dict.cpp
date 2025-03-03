@@ -43,6 +43,11 @@ std::vector<DictItem>::const_iterator Dict::end() const noexcept
     return m_items.end();
 }
 
+size_t Dict::size() const noexcept
+{
+    return m_items.size();
+}
+
 const DictItem& Dict::operator[](size_t i) const
 {
     return m_items[i];
@@ -62,6 +67,7 @@ Dict::ItemCRefVec Dict::search(std::span<const PinYin::Token> tokens) const
         for (size_t i{ 0 }; match && i < tokens.size(); ++i) {
             switch (tokens[i].m_type) {
             case TT::Initial:
+            case TT::Extendible:
                 if (!syllables[i].starts_with(tokens[i].m_token))
                     match = false;
             break;

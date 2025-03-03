@@ -1,6 +1,5 @@
 #include "dict_item.h"
 #include "dict.h"
-#include <iostream>
 
 namespace pinyin_ime {
 
