@@ -1,18 +1,23 @@
 #include <iomanip>
-#include <iostream>
 #include <ranges>
 #include <string_view>
+#include <iostream>
 #include <vector>
 #include <span>
-#include "trie.h"
- 
+#include "ime.h"
+#include <iostream>
+#include <cstring>
+
 int main()
 {
     using namespace std;
-    std::vector<int> v{ 1, 2, 3, 4, 5 };
-
-    const auto &vr{ v };
-    span<const int> s{ vr.begin() + 1, vr.end() };
-
+    using namespace pinyin_ime;
+    IME ime{ "../data/raw_dict_utf8.txt" };
+    auto &candidates = ime.search("z'i'zhi'zhi'ming").get();
+    for (auto &cand : candidates) {
+        cout << cand.chinese() << ' '
+             << cand.freq() << ' '
+             << cand.pinyin() << endl;
+    }
     return 0;
 }

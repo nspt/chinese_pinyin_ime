@@ -1,9 +1,10 @@
-#ifndef PINYIN_IME_PINYIN
-#define PINYIN_IME_PINYIN
+#ifndef PINYIN_IME_PINYIN_H
+#define PINYIN_IME_PINYIN_H
 
 #include <string>
 #include <vector>
 #include <regex>
+#include <span>
 #include <limits>
 #include "trie.h"
 
@@ -14,44 +15,64 @@ public:
     enum class TokenType {
         Invalid, Initial, Extendible, Complete
     };
+
     struct Token {
         Token() = default;
-        Token(TokenType type, std::string_view str)
-            : m_type{ type }, m_token{ str }
+        Token(TokenType type, std::string_view pinyin)
+            : m_type{ type }, m_token{ pinyin }
         {}
         TokenType m_type{ TokenType::Invalid };
         std::string_view m_token;
     };
+
+    using TokenSpan = std::span<const Token>;
+
     PinYin();
     PinYin(std::string str);
     PinYin(const PinYin&) = delete;
+    PinYin(PinYin&&) = delete;
+    PinYin& operator=(const PinYin&) = delete;
+    PinYin& operator=(PinYin&&) = delete;
+
     void reserve(size_t cap);
-    std::string::const_iterator begin() const;
-    std::string::const_iterator end() const;
-    const char& operator[](size_t i) const;
-    size_t fixed_tokens_count() const;
+
+    TokenSpan tokens() const noexcept;
+    std::string_view pinyin() const noexcept;
+
+    std::string::const_iterator begin() const noexcept;
+    std::string::const_iterator end() const noexcept;
+
+    const char& operator[](size_t i) const noexcept;
+
     void fix_front_tokens(size_t count);
-    const Trie& syllableTrie() const;
+    TokenSpan fixed_tokens() const noexcept;
+    TokenSpan unfixed_tokens() const noexcept;
+
+    std::string_view fixed_letters() const noexcept;
+    std::string_view unfixed_letters() const noexcept;
+
+    TokenSpan backspace(size_t count = 1);
+    TokenSpan insert(size_t pos, std::string_view str);
+    TokenSpan push_back(char ch);
+    TokenSpan push_back(std::string_view str);
+    void clear() noexcept;
+
+    static const Trie& syllableTrie() noexcept;
     static void add_syllable(std::string_view syllable);
     static void remove_syllable(std::string_view syllable);
-    const std::vector<Token>& tokens() const;
-    const std::vector<Token>& backspace(size_t count = 1);
-    const std::vector<Token>& insert(size_t pos, std::string_view str);
-    const std::vector<Token>& insert(const std::string::const_iterator &iter, std::string_view str);
-    const std::vector<Token>& push_back(char ch);
-    const std::vector<Token>& push_back(std::string_view str);
+
+    static constexpr char s_delim{ '\'' };
 private:
-    const std::vector<Token>& update_tokens();
+    TokenSpan update_tokens();
 
     std::vector<Token> m_tokens;
-    std::string m_str;
+    std::string m_pinyin;
     size_t m_fixed_tokens{ 0 },  m_fixed_letters{ 0 };
 
     static Trie s_syllable_trie;
-    static constexpr char s_delim{ '\'' };
     static constexpr size_t s_capacity{ 128 };
 };
 
 } // namespace pinyin_ime
 
-#endif // PINYIN_IME_PINYIN
+#endif // PINYIN_IME_PINYIN_H

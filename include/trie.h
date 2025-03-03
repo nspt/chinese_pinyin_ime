@@ -1,5 +1,5 @@
-#ifndef PINYIN_IME_TRIE
-#define PINYIN_IME_TRIE
+#ifndef PINYIN_IME_TRIE_H
+#define PINYIN_IME_TRIE_H
 
 #include <string>
 #include <stack>
@@ -15,6 +15,7 @@ public:
     enum class MatchResult {
         Miss, Partial, Extendible, Complete
     };
+
     class Iterator {
     public:
         Data& operator*() const
@@ -33,7 +34,7 @@ public:
 
         std::string string() const
         {
-            return m_prefix + static_cast<char>(m_idx + 'a');
+            return m_prefix + static_cast<char>(m_idx + Node::s_base);
         }
 
         Iterator& operator++()
@@ -41,13 +42,13 @@ public:
             m_node = nullptr;
             m_idx = 0;
             m_prefix.clear();
-            while (!m_stack.empty()) {
+            while (m_stack.size()) {
                 m_node = std::get<0>(m_stack.top());
                 m_idx = std::get<1>(m_stack.top());
                 m_prefix = std::move(std::get<2>(m_stack.top()));
                 m_stack.pop();
 
-                for (auto i = m_idx + 1; i < s_table_size; ++i) {
+                for (size_t i = m_idx + 1; i < Node::s_size; ++i) {
                     if (m_node->m_table[i].first || m_node->m_table[i].second) {
                         m_stack.push({ m_node, i, m_prefix});
                         break;
@@ -56,7 +57,7 @@ public:
 
                 auto &end{ m_node->m_table[m_idx] };
                 if (end.first)
-                    m_stack.push({ end.first.get(), 0, m_prefix + static_cast<char>(m_idx + 'a') });
+                    m_stack.push({ end.first.get(), 0, m_prefix + static_cast<char>(m_idx + Node::s_base) });
 
                 if (end.second)
                     break;
@@ -68,25 +69,28 @@ public:
             return *this;
         }
 
-        bool operator==(const Iterator& other) const
+        Iterator operator++(int)
+        {
+            Iterator i{ *this };
+            ++(*this);
+            return i;
+        }
+
+        bool operator==(const Iterator& other) const noexcept
         {
             return (m_node == other.m_node && m_idx == other.m_idx);
         }
 
-        bool operator!=(const Iterator& other) const
+        bool operator!=(const Iterator& other) const noexcept
         {
             return !(*this == other);
         }
 
     private:
-        Iterator() = default;
         typename BasicTrie<Data>::Node *m_node{ nullptr };
-        std::stack<std::tuple<decltype(m_node), uint8_t, std::string>> m_stack;
-        uint8_t m_idx{ 0 };
+        std::stack<std::tuple<decltype(m_node), size_t, std::string>> m_stack;
+        size_t m_idx{ 0 };
         std::string m_prefix;
-        static constexpr size_t s_table_size{ 
-            sizeof(BasicTrie<Data>::Node::m_table) / sizeof(BasicTrie<Data>::Node::m_table[0])
-        };
         friend class BasicTrie<Data>;
     };
 
@@ -101,7 +105,7 @@ public:
         size_t str_size{ str.size() };
         typename Node::End *end{ nullptr };
         for (size_t i{ 0 }; i < str_size; ++i) {
-            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            size_t idx{ static_cast<size_t>((str[i] - Node::s_base) % Node::s_size) };
             end = &(node->m_table[idx]);
             if (i == str_size - 1) {
                 if (end->second)
@@ -140,7 +144,7 @@ public:
         Node *node{ m_root.get() };
         size_t str_size{ str.size() };
         for (size_t i{ 0 }; i < str_size; ++i) {
-            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            size_t idx{ static_cast<size_t>((str[i] - Node::s_base) % Node::s_size) };
             auto &end{ node->m_table[idx] };
             if (i == str_size - 1) {
                 if (!end.second)
@@ -168,14 +172,14 @@ public:
         }
     }
 
-    MatchResult match(std::string_view str) const
+    MatchResult match(std::string_view str) const noexcept
     {
         if (str.empty() || !m_root)
             return MatchResult::Miss;
         Node *node{ m_root.get() };
         size_t str_size{ str.size() };
         for (size_t i{ 0 }; i < str_size; ++i) {
-            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            size_t idx{ static_cast<size_t>((str[i] - Node::s_base) % Node::s_size) };
             auto &end_pair{ node->m_table[idx] };
             if (i == str_size - 1) {
                 if (end_pair.second) {
@@ -199,7 +203,7 @@ public:
         return MatchResult::Miss; // should not reach here
     }
 
-    bool contains(std::string_view str) const
+    bool contains(std::string_view str) const noexcept
     {
         auto r = match(str);
         if (r == MatchResult::Complete ||
@@ -215,7 +219,7 @@ public:
         Node *node{ m_root.get() };
         size_t str_size{ str.size() };
         for (size_t i{ 0 }; i < str_size; ++i) {
-            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            size_t idx{ static_cast<size_t>((str[i] - Node::s_base) % Node::s_size) };
             auto &end{ node->m_table[idx] };
             if (i == str_size - 1) {
                 if (!end.second)
@@ -231,12 +235,12 @@ public:
         throw std::logic_error{ "String invalid" }; // should not reach here
     }
 
-    bool empty() const
+    bool empty() const noexcept
     {
         return !m_root;
     }
 
-    Iterator begin() const
+    Iterator begin() noexcept
     {
         Iterator iter;
         if (!m_root)
@@ -254,31 +258,10 @@ public:
         return iter;
     }
 
-    constexpr Iterator end() const
+    Iterator end() noexcept
     {
         return {};
     }
-
-    std::ostream& print(std::ostream &os, std::string_view separator) const
-    {
-        bool need_separator{ false };
-        auto end_iter = end();
-        for (auto iter = begin(); iter != end_iter; ++iter) {
-            if (!need_separator) {
-                need_separator = true;
-                os << iter.string();
-            } else {
-                os << separator << iter.string();
-            }
-        }
-        return os;
-    }
-
-    friend std::ostream& operator<<(std::ostream &os, const BasicTrie<Data> &trie)
-    {
-        return trie.print(os, " ");
-    }
-
 private:
     template <class... Args>
     Data& add_or_assign(std::string_view str, bool assign, Args&&... args)
@@ -291,7 +274,7 @@ private:
         size_t str_size{ str.size() };
         decltype(Node::m_table[0]) *end{ nullptr };
         for (size_t i{ 0 }; i < str_size; ++i) {
-            uint8_t idx{ static_cast<uint8_t>((str[i] - 'a') % 26) };
+            size_t idx{ static_cast<size_t>((str[i] - Node::s_base) % Node::s_size) };
             end = &(node->m_table[idx]);
             if (i == str_size - 1) {
                 if (end->second && !assign)
@@ -311,7 +294,9 @@ private:
     }
     struct Node {
         using End = std::pair<std::unique_ptr<Node>, std::unique_ptr<Data>>;
-        End m_table[26];
+        static constexpr char s_base{ 'a' };
+        static constexpr size_t s_size{ 26 };
+        End m_table[s_size];
     };
     std::unique_ptr<Node> m_root;
 };
@@ -320,4 +305,4 @@ using Trie = BasicTrie<bool>;
 
 } // namespace pinyin_ime
 
-#endif // PINYIN_IME_TRIE
+#endif // PINYIN_IME_TRIE_H

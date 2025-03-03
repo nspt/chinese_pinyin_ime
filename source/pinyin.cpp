@@ -6,14 +6,14 @@ Trie PinYin::s_syllable_trie;
 
 PinYin::PinYin()
 {
-    m_str.reserve(s_capacity);
+    m_pinyin.reserve(s_capacity);
     m_tokens.reserve(s_capacity);
 }
 
 PinYin::PinYin(std::string str)
-    : m_str{ std::move(str) }
+    : m_pinyin{ std::move(str) }
 {
-    m_str.reserve(s_capacity);
+    m_pinyin.reserve(s_capacity);
     m_tokens.reserve(s_capacity);
     update_tokens();
 }
@@ -22,39 +22,71 @@ void PinYin::reserve(size_t cap)
 {
     std::vector<std::tuple<size_t, size_t, TokenType>> tokens;
     for (auto &token : m_tokens) {
-        auto offset{ token.m_token.data() - m_str.data() };
+        auto offset{ token.m_token.data() - m_pinyin.data() };
         auto size{ token.m_token.size() };
         tokens.emplace_back(offset, size, token.m_type);
     }
     m_tokens.clear();
-    m_str.reserve(cap);
+    m_pinyin.reserve(cap);
     m_tokens.reserve(cap);
     for (auto &token : tokens) {
         auto offset{ std::get<0>(token) };
         auto size{ std::get<1>(token) };
         m_tokens.emplace_back(
             std::get<2>(token),
-            std::string_view{ m_str.data() + offset, size }
+            std::string_view{ m_pinyin.data() + offset, size }
         );
     }
 }
 
-std::string::const_iterator PinYin::begin() const
+std::string_view PinYin::pinyin() const noexcept
 {
-    return m_str.begin();
+    return m_pinyin;
 }
-std::string::const_iterator PinYin::end() const
+
+std::string::const_iterator PinYin::begin() const noexcept
 {
-    return m_str.end();
+    return m_pinyin.begin();
 }
-const char& PinYin::operator[](size_t i) const
+
+std::string::const_iterator PinYin::end() const noexcept
 {
-    return m_str[i];
+    return m_pinyin.end();
 }
-size_t PinYin::fixed_tokens_count() const
+
+const char& PinYin::operator[](size_t i) const noexcept
 {
-    return m_fixed_tokens;
+    return m_pinyin[i];
 }
+
+PinYin::TokenSpan PinYin::fixed_tokens() const noexcept
+{
+    if (m_fixed_tokens == 0)
+        return {};
+    return { m_tokens.begin(), m_fixed_tokens };
+}
+
+PinYin::TokenSpan PinYin::unfixed_tokens() const noexcept
+{
+    if (m_fixed_tokens < m_tokens.size())
+        return { m_tokens.begin() + m_fixed_tokens, m_tokens.end() };
+    return {};
+}
+
+std::string_view PinYin::fixed_letters() const noexcept
+{
+    if (m_fixed_letters == 0)
+        return {};
+    return { m_pinyin.begin(), m_pinyin.begin() + m_fixed_letters };
+}
+
+std::string_view PinYin::unfixed_letters() const noexcept
+{
+    if (m_fixed_letters < m_pinyin.size())
+        return { m_pinyin.begin() + m_fixed_letters, m_pinyin.end() };
+    return {};
+}
+
 void PinYin::fix_front_tokens(size_t count)
 {
     auto tokens_count = m_tokens.size();
@@ -66,81 +98,96 @@ void PinYin::fix_front_tokens(size_t count)
         return;
     }
     if (m_fixed_tokens == tokens_count) {
-        m_fixed_letters = m_str.size();
+        m_fixed_letters = m_pinyin.size();
         return;
     }
     auto &token = m_tokens[m_fixed_tokens];
-    m_fixed_letters = token.m_token.data() - m_str.data();
+    m_fixed_letters = token.m_token.data() - m_pinyin.data();
 }
-const Trie& PinYin::syllableTrie() const
+
+const Trie& PinYin::syllableTrie() noexcept
 {
     return s_syllable_trie;
 }
+
 void PinYin::add_syllable(std::string_view syllable)
 {
     s_syllable_trie.add_if_miss(syllable);
 }
+
 void PinYin::remove_syllable(std::string_view syllable)
 {
     s_syllable_trie.remove(syllable);
 }
-const std::vector<PinYin::Token>& PinYin::tokens() const
+
+PinYin::TokenSpan PinYin::tokens() const noexcept
 {
     return m_tokens;
 }
-const std::vector<PinYin::Token>& PinYin::backspace(size_t count)
+
+PinYin::TokenSpan PinYin::backspace(size_t count)
 {
-    size_t free_letters = m_str.size() - m_fixed_letters;
+    size_t free_letters = m_pinyin.size() - m_fixed_letters;
     if (count == 0 || free_letters == 0)
-        return m_tokens;
+        return unfixed_tokens();
     if (count > free_letters)
         count = free_letters;
     if (count == free_letters) {
         m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
-        m_fixed_letters = m_str.size();
-        return m_tokens;
+        m_fixed_letters = m_pinyin.size();
+        return unfixed_tokens();
     }
-    m_str.erase(m_str.size() - count);
-    return update_tokens();
-}
-const std::vector<PinYin::Token>& PinYin::insert(size_t pos, std::string_view str)
-{
-    if (pos < m_fixed_letters)
-        throw std::logic_error{ "Can't insert before fixed position" };
-    if (m_str.size() + str.size() >= m_str.capacity())
-        return m_tokens; // no effect
-    m_str.insert(pos, str);
-    return update_tokens();
-}
-const std::vector<PinYin::Token>& PinYin::push_back(char ch)
-{
-    if (m_str.size() + 1 >= m_str.capacity())
-        return m_tokens; // no effect
-    m_str.push_back(ch);
-    return update_tokens();
-}
-const std::vector<PinYin::Token>& PinYin::push_back(std::string_view str)
-{
-    if (m_str.size() + str.size() >= m_str.capacity())
-        return m_tokens; // no effect
-    m_str += str;
+    m_pinyin.erase(m_pinyin.size() - count);
     return update_tokens();
 }
 
-const std::vector<PinYin::Token>& PinYin::update_tokens()
+PinYin::TokenSpan PinYin::insert(size_t pos, std::string_view str)
+{
+    if (pos < m_fixed_letters)
+        throw std::logic_error{ "Can't insert before fixed position" };
+    if (m_pinyin.size() + str.size() >= m_pinyin.capacity())
+        return unfixed_tokens(); // no effect
+    m_pinyin.insert(pos, str);
+    return update_tokens();
+}
+
+PinYin::TokenSpan PinYin::push_back(char ch)
+{
+    if (m_pinyin.size() + 1 >= m_pinyin.capacity())
+        return unfixed_tokens(); // no effect
+    m_pinyin.push_back(ch);
+    return update_tokens();
+}
+
+PinYin::TokenSpan PinYin::push_back(std::string_view str)
+{
+    if (m_pinyin.size() + str.size() >= m_pinyin.capacity())
+        return unfixed_tokens(); // no effect
+    m_pinyin += str;
+    return update_tokens();
+}
+
+void PinYin::clear() noexcept
+{
+    m_fixed_letters = m_fixed_tokens = 0;
+    m_tokens.clear();
+    m_pinyin.clear();
+}
+
+PinYin::TokenSpan PinYin::update_tokens()
 {
     using TokenList = std::vector<Token>;
     using MR = Trie::MatchResult;
 
-    if (m_fixed_letters == m_str.size())
+    if (m_fixed_letters == m_pinyin.size())
         return m_tokens;
 
     std::vector<TokenList> candidates;
     std::vector<TokenList> pending_tasks(1);
 
-    while (!pending_tasks.empty()) {
-        auto begin_iter{ m_str.begin() + m_fixed_letters };
-        auto end_iter{ m_str.end() };
+    while (pending_tasks.size()) {
+        auto begin_iter{ m_pinyin.begin() + m_fixed_letters };
+        auto end_iter{ m_pinyin.end() };
         auto start_iter{ begin_iter };
         auto cur_iter{ start_iter };
 
@@ -148,7 +195,7 @@ const std::vector<PinYin::Token>& PinYin::update_tokens()
         pending_tasks.pop_back();
         if (!list.empty()) {
             auto &last_token = list.back();
-            auto offset = last_token.m_token.data() - m_str.data() + last_token.m_token.size();
+            auto offset = last_token.m_token.data() - m_pinyin.data() + last_token.m_token.size();
             cur_iter = start_iter = begin_iter = begin_iter + offset;
         }
         for (auto prev_type = TokenType::Invalid; cur_iter != end_iter;) {
@@ -248,16 +295,12 @@ const std::vector<PinYin::Token>& PinYin::update_tokens()
             }
         }
     }
-    if (m_fixed_tokens == 0)
-        m_tokens = std::move(*(winner.first));
-    else {
-        m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
-        m_tokens.insert(m_tokens.end(),
-            std::make_move_iterator(winner.first->begin()),
-            std::make_move_iterator(winner.first->end())
-        );
-    }
-    return m_tokens;
+    m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
+    m_tokens.insert(m_tokens.end(),
+        std::make_move_iterator(winner.first->begin()),
+        std::make_move_iterator(winner.first->end())
+    );
+    return unfixed_tokens();
 }
 
 } // namespace pinyin_ime
