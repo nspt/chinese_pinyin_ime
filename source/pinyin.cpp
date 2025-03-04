@@ -128,8 +128,9 @@ PinYin::TokenSpan PinYin::tokens() const noexcept
 PinYin::TokenSpan PinYin::backspace(size_t count)
 {
     size_t free_letters = m_pinyin.size() - m_fixed_letters;
-    if (count == 0 || free_letters == 0)
+    if (count == 0 || free_letters == 0) {
         return unfixed_tokens();
+    }
     if (count > free_letters)
         count = free_letters;
     if (count == free_letters) {
@@ -222,6 +223,9 @@ PinYin::TokenSpan PinYin::update_tokens()
             break;
             case MR::Partial:
                 prev_type = TokenType::Initial;
+                if (cur_end_iter == end_iter) {
+                    list.emplace_back(TokenType::Initial, token);
+                }
                 ++cur_iter;
             break;
             case MR::Extendible: {
