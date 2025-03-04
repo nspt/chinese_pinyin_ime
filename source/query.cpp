@@ -2,27 +2,60 @@
 
 namespace pinyin_ime {
 
-Query::Query(BasicTrie<Dict> &dict_trie)
+Query::Query(BasicTrie<Dict> &dict_trie) noexcept
     : m_dict_trie_ref{ dict_trie }
 {}
 
-Query::Query(BasicTrie<Dict> &dict_trie, PinYin::TokenSpan tokens)
+Query::Query(BasicTrie<Dict> &dict_trie, PinYin::TokenSpan tokens) noexcept
     : m_dict_trie_ref{ dict_trie }, m_tokens{ tokens }
 {
     exec(m_tokens);
 }
 
-void Query::exec(PinYin::TokenSpan tokens)
+Query::Query(Query&& other) noexcept
+    : m_dict_trie_ref{ other.m_dict_trie_ref },
+      m_dict{ other.m_dict },
+      m_tokens{ other.m_tokens },
+      m_items{ std::move(other.m_items) }
 {
-    m_choose_idx = s_npos;
-    m_tokens = tokens;
-    std::string acronym;
-    for (auto &token : tokens) {
-        if (!token.m_token.empty())
-            acronym.push_back(token.m_token.front());
+    other.m_dict = nullptr;
+    other.m_tokens = {};
+}
+
+Query& Query::operator=(Query &&other) noexcept
+{
+    m_dict_trie_ref = other.m_dict_trie_ref;
+    m_dict = other.m_dict;
+    m_tokens = other.m_tokens;
+    m_items = std::move(other.m_items);
+
+    other.m_dict = nullptr;
+    other.m_tokens = {};
+    return *this;
+}
+
+bool Query::exec(PinYin::TokenSpan tokens) noexcept
+{
+    try {
+        m_tokens = tokens;
+        std::string acronym;
+        for (auto &token : tokens) {
+            if (!token.m_token.empty())
+                acronym.push_back(token.m_token.front());
+        }
+        m_dict = &(m_dict_trie_ref.get().data(acronym));
+        m_items = m_dict->search(tokens);
+        return true;
+    } catch (const std::exception &e) {
+        m_dict = nullptr;
+        m_items.clear();
+        return false;
     }
-    Dict &dict{ m_dict_trie_ref.get().data(acronym) };
-    m_items = dict.search(tokens);
+}
+
+bool Query::is_active() const noexcept
+{
+    return !m_tokens.empty();
 }
 
 PinYin::TokenSpan Query::tokens() const noexcept
@@ -30,23 +63,9 @@ PinYin::TokenSpan Query::tokens() const noexcept
     return m_tokens;
 }
 
-void Query::select(size_t idx)
+Dict* Query::dict() const noexcept
 {
-    if (idx >= size())
-        throw std::out_of_range{ "Index out of range" };
-    m_choose_idx = idx;
-}
-
-bool Query::is_selected() const noexcept
-{
-    return m_choose_idx != s_npos;
-}
-
-Query::ItemCRef Query::selected_item() const
-{
-    if (m_choose_idx == s_npos)
-        throw std::logic_error{ "Query is not selected" };
-    return m_items[m_choose_idx];
+    return m_dict;
 }
 
 Query::ItemCRefVecCRef Query::items() const noexcept

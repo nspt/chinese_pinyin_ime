@@ -54,17 +54,17 @@ DictItem& DictItem::operator=(DictItem &&other)
     return *this;
 }
 
-const std::string& DictItem::chinese() const noexcept
+std::string_view DictItem::chinese() const noexcept
 {
     return m_chinese;
 }
 
-void DictItem::set_chinese(std::string chinese)
+void DictItem::set_chinese(std::string chinese) noexcept
 {
     m_chinese = std::move(chinese);
 }
 
-const std::string& DictItem::pinyin() const noexcept
+std::string_view DictItem::pinyin() const noexcept
 {
     return m_pinyin;
 }
@@ -73,6 +73,15 @@ void DictItem::set_pinyin(std::string pinyin)
 {
     m_pinyin = std::move(pinyin);
     build_syllables_view();
+}
+
+std::string DictItem::acronym() const
+{
+    std::string str;
+    for (auto &s : m_syllables) {
+        str.push_back(s.front());
+    }
+    return str;
 }
 
 const std::vector<std::string_view>& DictItem::syllables() const noexcept
@@ -85,7 +94,7 @@ uint32_t DictItem::freq() const noexcept
     return m_freq;
 }
 
-void DictItem::set_freq(uint32_t freq)
+void DictItem::set_freq(uint32_t freq) noexcept
 {
     m_freq = freq;
 }

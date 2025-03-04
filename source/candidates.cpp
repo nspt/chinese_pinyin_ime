@@ -2,9 +2,9 @@
 
 namespace pinyin_ime {
 
-void Candidates::add_query(const Query &query)
+void Candidates::push_back(Query query)
 {
-    m_queries.emplace_back(query);
+    m_queries.emplace_back(std::move(query));
 }
 
 size_t Candidates::size() const noexcept
@@ -26,7 +26,14 @@ bool Candidates::empty() const noexcept
     return true;
 }
 
-Candidates::QueryRef Candidates::query_of(size_t idx)
+std::pair<Candidates::QueryRef, size_t> Candidates::to_query_and_index(const Candidates::Iterator& it)
+{
+    if (it.m_candidates != this)
+        throw std::out_of_range{ "Iterator invalid" };
+    return to_query_and_index(it.m_idx);
+}
+
+std::pair<Candidates::QueryRef, size_t> Candidates::to_query_and_index(size_t idx)
 {
     for (auto &query : m_queries) {
         auto query_size{ query.size() };
@@ -34,7 +41,7 @@ Candidates::QueryRef Candidates::query_of(size_t idx)
             idx = idx - query_size;
             continue;
         }
-        return query;
+        return { query, idx };
     }
     throw std::out_of_range{ "Index out of range" };
 }

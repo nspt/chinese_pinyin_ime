@@ -13,15 +13,15 @@ public:
     public:
         Iterator() = default;
         Iterator(const Candidates *c, size_t i)
-            : m_p{ c }, m_idx{ i }
+            : m_candidates{ c }, m_idx{ i }
         {}
         const DictItem& operator*() const
         {
-            return (*m_p)[m_idx];
+            return (*m_candidates)[m_idx];
         }
         const DictItem* operator->() const
         {
-            return &((*m_p)[m_idx].get());
+            return &((*m_candidates)[m_idx].get());
         }
         Iterator& operator++()
         {
@@ -63,21 +63,24 @@ public:
         }
         bool operator==(const Iterator& rhs)
         {
-            return m_p == rhs.m_p && m_idx == rhs.m_idx;
+            return m_candidates == rhs.m_candidates && m_idx == rhs.m_idx;
         }
         bool operator!=(const Iterator& rhs)
         {
             return !(*this == rhs);
         }
     private:
-        const Candidates* m_p{ nullptr };
+        const Candidates* m_candidates{ nullptr };
         size_t m_idx{ 0 };
+
+        friend class Candidates;
     };
 
-    void add_query(const Query &query);
+    void push_back(Query query);
     size_t size() const noexcept;
     bool empty() const noexcept;
-    QueryRef query_of(size_t idx);
+    std::pair<QueryRef, size_t> to_query_and_index(const Iterator& it);
+    std::pair<QueryRef, size_t> to_query_and_index(size_t idx);
     Query::ItemCRef operator[](size_t idx) const noexcept;
     void clear() noexcept;
     Iterator begin() const noexcept;

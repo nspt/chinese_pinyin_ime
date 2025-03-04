@@ -87,22 +87,36 @@ std::string_view PinYin::unfixed_letters() const noexcept
     return {};
 }
 
-void PinYin::fix_front_tokens(size_t count)
+size_t PinYin::fix_count_for_tokens(TokenSpan tokens) const noexcept
+{
+    if (tokens.empty())
+        return 0;
+    auto vec_start{ m_tokens.data() };
+    auto vec_end{ m_tokens.data() + m_tokens.size() };
+    auto span_start{ tokens.data() };
+    auto span_end{ tokens.data() + tokens.size() };
+    if (vec_start > span_start || span_end > vec_end)
+        return 0;
+    return span_end - vec_start;
+}
+
+bool PinYin::fix_front_tokens(size_t count) noexcept
 {
     auto tokens_count = m_tokens.size();
     if (count > tokens_count)
-        count = tokens_count;
+        return false;
     m_fixed_tokens = count;
     if (m_fixed_tokens == 0) {
         m_fixed_letters = 0;
-        return;
+        return true;
     }
     if (m_fixed_tokens == tokens_count) {
         m_fixed_letters = m_pinyin.size();
-        return;
+        return true;
     }
     auto &token = m_tokens[m_fixed_tokens];
     m_fixed_letters = token.m_token.data() - m_pinyin.data();
+    return true;
 }
 
 const Trie& PinYin::syllableTrie() noexcept
@@ -115,7 +129,7 @@ void PinYin::add_syllable(std::string_view syllable)
     s_syllable_trie.add_if_miss(syllable);
 }
 
-void PinYin::remove_syllable(std::string_view syllable)
+void PinYin::remove_syllable(std::string_view syllable) noexcept
 {
     s_syllable_trie.remove(syllable);
 }
@@ -133,12 +147,8 @@ PinYin::TokenSpan PinYin::backspace(size_t count)
     }
     if (count > free_letters)
         count = free_letters;
-    if (count == free_letters) {
-        m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
-        m_fixed_letters = m_pinyin.size();
-        return unfixed_tokens();
-    }
-    m_pinyin.erase(m_pinyin.size() - count);
+    m_fixed_letters = m_pinyin.size() - count;
+    m_pinyin.erase(m_fixed_letters);
     return update_tokens();
 }
 
@@ -175,18 +185,14 @@ void PinYin::clear() noexcept
     m_pinyin.clear();
 }
 
-PinYin::TokenSpan PinYin::update_tokens()
+std::vector<PinYin::TokenVec> PinYin::token_split_candidates() const
 {
-    using TokenList = std::vector<Token>;
     using MR = Trie::MatchResult;
+    std::vector<TokenVec> candidates;
+    std::vector<TokenVec> pending_tasks;
 
-    if (m_fixed_letters == m_pinyin.size())
-        return m_tokens;
-
-    std::vector<TokenList> candidates;
-    std::vector<TokenList> pending_tasks(1);
-
-    while (pending_tasks.size()) {
+    pending_tasks.emplace_back();
+    while (!pending_tasks.empty()) {
         auto begin_iter{ m_pinyin.begin() + m_fixed_letters };
         auto end_iter{ m_pinyin.end() };
         auto start_iter{ begin_iter };
@@ -206,6 +212,7 @@ PinYin::TokenSpan PinYin::update_tokens()
                 if (cur_iter != start_iter) {
                     list.emplace_back(prev_type, std::string_view{ start_iter, cur_iter });
                 }
+                prev_type = TokenType::Invalid;
                 cur_iter = start_iter = cur_end_iter;
                 continue;
             }
@@ -220,14 +227,14 @@ PinYin::TokenSpan PinYin::update_tokens()
                     prev_type = TokenType::Invalid;
                     start_iter = ++cur_iter;
                 }
-            break;
+                break;
             case MR::Partial:
                 prev_type = TokenType::Initial;
                 if (cur_end_iter == end_iter) {
                     list.emplace_back(TokenType::Initial, token);
                 }
                 ++cur_iter;
-            break;
+                break;
             case MR::Extendible: {
                 if (cur_end_iter != end_iter) {
                     std::string_view next_token{ start_iter, cur_end_iter + 1 };
@@ -247,36 +254,40 @@ PinYin::TokenSpan PinYin::update_tokens()
                     start_iter = ++cur_iter;
                 }
             }
-            break;
+                break;
             case MR::Complete:
                 list.emplace_back(TokenType::Complete, token);
                 prev_type = TokenType::Invalid;
                 start_iter = ++cur_iter;
-            break;
+                break;
             }
         }
         candidates.emplace_back(std::move(list));
     }
+    return candidates;
+}
 
+PinYin::TokenSpan PinYin::update_tokens()
+{
+    auto candidates{ token_split_candidates() };
     if (candidates.empty()) {
         m_tokens.erase(m_tokens.begin() + m_fixed_tokens, m_tokens.end());
         return m_tokens;
     }
-
-    auto token_invalid_count = [](const TokenList& tokens)->int{
-        int count{ 0 };
+    auto token_invalid_count = [](const TokenVec& tokens)->size_t{
+        size_t count{ 0 };
         for (const auto &token : tokens) {
             if (token.m_type == TokenType::Invalid)
                 ++count;
         }
         return count;
     };
-    std::pair<decltype(candidates.begin()), int> winner{
+    std::pair<decltype(candidates.begin()), size_t> winner{
         candidates.begin(), token_invalid_count(candidates.front())
     };
-    auto end_iter = candidates.end();
+    auto end_iter{ candidates.end() };
     for (auto iter = winner.first + 1; iter != end_iter; ++iter) {
-        int invalid_count = token_invalid_count(*iter);
+        size_t invalid_count{ token_invalid_count(*iter) };
         if (invalid_count != winner.second) {
             if (invalid_count < winner.second) {
                 winner.first = iter;
@@ -284,17 +295,22 @@ PinYin::TokenSpan PinYin::update_tokens()
             }
             continue;
         }
-        TokenList &winner_list = *(winner.first);
-        TokenList &cand_list = *iter;
-        size_t s = std::min(winner_list.size(), cand_list.size());
+        TokenVec &winner_vec = *(winner.first);
+        TokenVec &cand_vec = *iter;
+        size_t s = std::min(winner_vec.size(), cand_vec.size());
         for (size_t i = 0; i < s; ++i) {
-            if (cand_list[i].m_type != TokenType::Invalid &&
-                winner_list[i].m_type == TokenType::Invalid) {
-                winner.first = iter;
-                break;
+            if (winner_vec[i].m_type != cand_vec[i].m_type) {
+                if (winner_vec[i].m_type == TokenType::Invalid) {
+                    winner.first = iter;
+                    break;
+                }
+                if (cand_vec[i].m_type == TokenType::Invalid) {
+                    break;
+                }
             }
-            if (cand_list[i].m_token.size() > winner_list[i].m_token.size()) {
-                winner.first = iter;
+            if (winner_vec[i].m_token.size() != cand_vec[i].m_token.size()) {
+                if (winner_vec[i].m_token.size() < cand_vec[i].m_token.size())
+                    winner.first = iter;
                 break;
             }
         }

@@ -240,7 +240,7 @@ public:
         return !m_root;
     }
 
-    Iterator begin() noexcept
+    Iterator begin() const noexcept
     {
         Iterator iter;
         if (!m_root)
@@ -258,7 +258,7 @@ public:
         return iter;
     }
 
-    Iterator end() noexcept
+    Iterator end() const noexcept
     {
         return {};
     }

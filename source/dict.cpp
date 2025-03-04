@@ -2,35 +2,39 @@
 
 namespace pinyin_ime {
 
-void Dict::add_item(DictItem item)
+bool Dict::add_item(DictItem item)
 {
-    if (!m_items.empty()) {
-        auto ref_syllables{ m_items[0].syllables() };
-        auto new_syllables{ item.syllables() };
-        if (ref_syllables.size() != new_syllables.size()) {
-            throw std::logic_error{ "Item syllables count wrong" };
-        }
-        for (size_t i{ 0 }; i < new_syllables.size(); ++i) {
-            if (ref_syllables[i].front() != new_syllables[i].front()) {
-                throw std::logic_error{ "Item syllables wrong" };
-            }
-        }
+    if (m_items.empty()) {
+        m_items.emplace_back(std::move(item));
+        build_acronym();
+        return true;
     }
-    auto iter{ m_items.begin() };
+    if (item.acronym() != m_acronym)
+        throw std::logic_error{ "Item syllables wrong" };
+    auto begin_iter{ m_items.begin() };
     auto end_iter{ m_items.end() };
-    for (; iter != end_iter; ++iter) {
-        if (iter->freq() > item.freq())
-            continue;
-        break;
+    auto insert_iter{ end_iter };
+    for (auto cur_iter{ begin_iter }; cur_iter != end_iter; ++cur_iter) {
+        if (insert_iter == end_iter && !item_comp(*cur_iter, item)) {
+            insert_iter = cur_iter;
+        }
+        if (cur_iter->chinese() == item.chinese()
+            && cur_iter->pinyin() == item.pinyin()) {
+            return false;
+        }
     }
-    iter = m_items.insert(iter, std::move(item));
+    insert_iter = m_items.insert(insert_iter, std::move(item));
+    return true;
+}
+
+std::string_view Dict::acronym() const noexcept
+{
+    return m_acronym;
 }
 
 void Dict::sort()
 {
-    std::sort(m_items.begin(), m_items.end(), [](const DictItem &l, const DictItem &r){
-        return l.freq() > r.freq();
-    });
+    std::sort(m_items.begin(), m_items.end(), item_comp);
 }
 
 std::vector<DictItem>::const_iterator Dict::begin() const noexcept
@@ -48,38 +52,59 @@ size_t Dict::size() const noexcept
     return m_items.size();
 }
 
-const DictItem& Dict::operator[](size_t i) const
+const DictItem& Dict::operator[](size_t i) const noexcept
 {
     return m_items[i];
 }
 
+const DictItem& Dict::at(size_t i) const
+{
+    return m_items.at(i);
+}
+
 Dict::ItemCRefVec Dict::search(std::span<const PinYin::Token> tokens) const
 {
+    enum class MatchResult {
+        Fail, Partial, Full
+    };
+    using MR = MatchResult;
     using TT = PinYin::TokenType;
+
     Dict::ItemCRefVec result;
+    Dict::ItemCRefVec ext_result;
     if (m_items.empty())
         return {};
     if (tokens.size() != m_items[0].syllables().size())
         return {};
     for (auto &item : m_items) {
-        bool match{ true };
+        MR match{ MR::Full };
         auto &syllables{ item.syllables() };
-        for (size_t i{ 0 }; match && i < tokens.size(); ++i) {
+        for (size_t i{ 0 }; match != MR::Fail && i < tokens.size(); ++i) {
             switch (tokens[i].m_type) {
             case TT::Initial:
             case TT::Extendible:
-                if (!syllables[i].starts_with(tokens[i].m_token))
-                    match = false;
-            break;
+                if (!syllables[i].starts_with(tokens[i].m_token)) {
+                    match = MR::Fail;
+                    break;
+                } else if (match == MR::Full
+                           && syllables[i].size() != tokens[i].m_token.size()) {
+                    match = MR::Partial;
+                }
+                break;
             default:
                 if (syllables[i] != tokens[i].m_token)
-                    match = false;
-            break;
+                    match = MR::Fail;
+                break;
             }
         }
-        if (match) {
-            result.push_back(item);
+        if (match == MR::Full) {
+            result.emplace_back(item);
+        } else if (match == MR::Partial) {
+            ext_result.emplace_back(item);
         }
+    }
+    if (result.empty()) {
+        return ext_result;
     }
     return result;
 }
@@ -95,15 +120,39 @@ Dict::ItemCRefVec Dict::search(std::string_view pinyin) const
     return results;
 }
 
+std::string& Dict::build_acronym()
+{
+    m_acronym.clear();
+    if (m_items.empty())
+        return m_acronym;
+    for (auto &s : m_items[0].syllables()) {
+        if (s.empty())
+            continue;
+        m_acronym.push_back(s.front());
+    }
+    return m_acronym;
+}
+
 Dict::ItemCRefVec Dict::search(const std::regex &pattern) const
 {
     Dict::ItemCRefVec results;
     for (auto& item : m_items) {
-        if (std::regex_match(item.pinyin(), pattern)) {
+        if (std::regex_match(std::string{ item.pinyin() }, pattern)) {
             results.push_back(item);
         }
     }
     return results;
+}
+
+void Dict::auto_inc_freq(std::span<size_t> item_indexes)
+{
+    auto size{ m_items.size() };
+    for (auto idx : item_indexes) {
+        if (idx >= size)
+            continue;
+        m_items[idx].set_freq(m_items[idx].freq() + suggest_inc_freq(idx));
+    }
+    sort();
 }
 
 size_t Dict::item_index(const DictItem &item) const noexcept
@@ -116,19 +165,33 @@ size_t Dict::item_index(const DictItem &item) const noexcept
     return static_cast<size_t>(p - data);
 }
 
-uint32_t Dict::suggest_inc_freq(DictItem &item) const
-{
-    auto idx{ item_index(item) };
-    if (idx == s_npos)
-        throw std::logic_error{ "Item doesn't belong to this dict" };
-    return suggest_inc_freq(idx);
-}
-
 uint32_t Dict::suggest_inc_freq(size_t idx) const noexcept
 {
     if (idx >= m_items.size())
         return 0;
     return 1; // TODO
+}
+
+bool Dict::item_comp(const DictItem &l, const DictItem &r) noexcept
+{
+    auto &l_syllables{ l.syllables() };
+    auto &r_syllables{ r.syllables() };
+    size_t l_s_size{ l_syllables.size() };
+    size_t r_s_size{ r_syllables.size() };
+
+    if (l_s_size < r_s_size)
+        return true;
+    if (l_s_size > r_s_size)
+        return false;
+
+    for (size_t i{ 0 }; i < l_s_size; ++i) {
+        if (l_syllables[i] == r_syllables[i])
+            continue;
+        if (l_syllables[i].size() != r_syllables[i].size())
+            return l_syllables[i].size() < r_syllables[i].size();
+        return l_syllables[i] < r_syllables[i];
+    }
+    return l.freq() >= r.freq();
 }
 
 } // namespace pinyin_ime

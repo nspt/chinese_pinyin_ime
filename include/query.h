@@ -11,16 +11,17 @@ class Query {
 public:
     using ItemCRefVecCRef = std::reference_wrapper<const Dict::ItemCRefVec>;
     using ItemCRef = std::reference_wrapper<const DictItem>;
-    Query(BasicTrie<Dict> &dict_trie);
-    Query(BasicTrie<Dict> &dict_trie, PinYin::TokenSpan tokens);
+    Query(BasicTrie<Dict> &dict_trie) noexcept;
+    Query(BasicTrie<Dict> &dict_trie, PinYin::TokenSpan tokens) noexcept;
+    Query(const Query&) = default;
+    Query(Query&& other) noexcept;
+    Query& operator=(const Query&) = default;
+    Query& operator=(Query &&other) noexcept;
 
-    void exec(PinYin::TokenSpan tokens);
+    bool exec(PinYin::TokenSpan tokens) noexcept;
+    bool is_active() const noexcept;
+    Dict* dict() const noexcept;
     PinYin::TokenSpan tokens() const noexcept;
-
-    void select(size_t idx);
-    bool is_selected() const noexcept;
-    ItemCRef selected_item() const;
-
     ItemCRefVecCRef items() const noexcept;
     size_t size() const noexcept;
     bool empty() const noexcept;
@@ -28,11 +29,9 @@ public:
     void clear() noexcept;
 private:
     std::reference_wrapper<BasicTrie<Dict>> m_dict_trie_ref;
+    Dict* m_dict{ nullptr };
     PinYin::TokenSpan m_tokens;
     Dict::ItemCRefVec m_items;
-    size_t m_choose_idx{ s_npos };
-
-    static constexpr size_t s_npos{ std::numeric_limits<size_t>::max() };
 };
 
 } // namespace pinyin_ime

@@ -17,15 +17,16 @@ public:
     DictItem& operator=(const DictItem &other);
     DictItem& operator=(DictItem &&other);
 
-    const std::string& chinese() const noexcept;
-    void set_chinese(std::string chinese);
+    std::string_view chinese() const noexcept;
+    void set_chinese(std::string chinese) noexcept;
 
-    const std::string& pinyin() const noexcept;
+    std::string_view pinyin() const noexcept;
     void set_pinyin(std::string pinyin);
 
     uint32_t freq() const noexcept;
-    void set_freq(uint32_t freq);
+    void set_freq(uint32_t freq) noexcept;
 
+    std::string acronym() const;
     const std::vector<std::string_view>& syllables() const noexcept;
 private:
     void build_syllables_view();

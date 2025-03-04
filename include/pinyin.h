@@ -44,7 +44,8 @@ public:
 
     const char& operator[](size_t i) const noexcept;
 
-    void fix_front_tokens(size_t count);
+    size_t fix_count_for_tokens(TokenSpan tokens) const noexcept;
+    bool fix_front_tokens(size_t count) noexcept;
     TokenSpan fixed_tokens() const noexcept;
     TokenSpan unfixed_tokens() const noexcept;
 
@@ -59,13 +60,15 @@ public:
 
     static const Trie& syllableTrie() noexcept;
     static void add_syllable(std::string_view syllable);
-    static void remove_syllable(std::string_view syllable);
+    static void remove_syllable(std::string_view syllable) noexcept;
 
     static constexpr char s_delim{ '\'' };
 private:
     TokenSpan update_tokens();
+    using TokenVec = std::vector<Token>;
+    std::vector<TokenVec> token_split_candidates() const;
 
-    std::vector<Token> m_tokens;
+    TokenVec m_tokens;
     std::string m_pinyin;
     size_t m_fixed_tokens{ 0 },  m_fixed_letters{ 0 };
 

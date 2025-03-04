@@ -15,7 +15,6 @@ void IME::load(std::string_view dict_file)
     std::ifstream file{ dict_file.data(), std::ios::binary };
     if (!file)
         throw std::runtime_error{ "Open file failed: "s + std::strerror(errno) };
-
     // remove BOM
     uint8_t bom[3]{ 0 };
     file.read(reinterpret_cast<char*>(bom), 3);
@@ -25,15 +24,11 @@ void IME::load(std::string_view dict_file)
         file.seekg(0);
 
     for (std::string line; std::getline(file, line);) {
-        auto start = line.find_first_not_of(" \t\r");
-        auto end = line.find_last_not_of(" \t\r");
-        if (start == std::string::npos || end == std::string::npos)
-            continue;
-        add_item_from_line(std::string_view{ line.data() + start, end - start + 1 });
+        add_item_from_line(line);
     }
 }
 
-void IME::save(std::string_view dict_file)
+void IME::save(std::string_view dict_file) const
 {
     using std::operator""s;
 
@@ -41,7 +36,8 @@ void IME::save(std::string_view dict_file)
     if (!file)
         throw std::runtime_error{ "Open file failed: "s + std::strerror(errno) };
 
-    for (auto dict_it{ m_dict_trie.begin() }; dict_it != m_dict_trie.end(); ++dict_it) {
+    auto end_iter{ m_dict_trie.end() };
+    for (auto dict_it{ m_dict_trie.begin() }; dict_it != end_iter; ++dict_it) {
         Dict &dict{ *dict_it };
         for (auto item_it{ dict.begin() }; item_it != dict.end(); ++item_it) {
             const DictItem &item{ *item_it };
@@ -52,12 +48,19 @@ void IME::save(std::string_view dict_file)
     }
 }
 
+IME::CandidatesCRef IME::candidates() const noexcept
+{
+    return m_candidates;
+}
+
 IME::CandidatesCRef IME::search(std::string_view pinyin)
 {
     std::string_view cur_pinyin{ m_pinyin.pinyin() };
     if (!pinyin.starts_with(cur_pinyin)) {
         if (cur_pinyin.starts_with(pinyin)) {
-            return backspace(cur_pinyin.size() - pinyin.size());
+            auto count = cur_pinyin.size() - pinyin.size();
+            if (count <= m_pinyin.unfixed_letters().size())
+                return backspace(count);
         }
         reset_search();
         return push_back(pinyin);
@@ -84,11 +87,9 @@ IME::CandidatesCRef IME::search_impl(PinYin::TokenSpan tokens)
     }
     m_candidates.clear();
     while (!tokens_for_search.empty()) {
-        try {
-            m_candidates.add_query(Query{ m_dict_trie, tokens_for_search.top() });
-        } catch (const std::exception &e) {
-            // should not happen
-        }
+        Query q{ m_dict_trie, tokens_for_search.top() };
+        if (q.size())
+            m_candidates.push_back(std::move(q));
         tokens_for_search.pop();
     }
     return m_candidates;
@@ -105,6 +106,34 @@ IME::CandidatesCRef IME::backspace(size_t count)
     return search_impl(m_pinyin.backspace(count));
 }
 
+void IME::finish_search(bool inc_freq, bool add_new_sentence)
+{
+    size_t choices_count{ m_choices.size() };
+    if (choices_count && inc_freq) {
+        std::map<Dict*, std::vector<size_t>> map;
+        for (auto &c : m_choices) {
+            map[&c.m_dict].emplace_back(c.m_idx);
+        }
+        for (auto &p : map) {
+            p.first->auto_inc_freq(p.second);
+        }
+    }
+    if (choices_count && add_new_sentence) {
+        std::string chinese;
+        std::string pinyin;
+        for (size_t i{ 0 }; i < choices_count; ++i) {
+            auto &choice{ m_choices[i] };
+            chinese += choice.m_dict[choice.m_idx].chinese();
+            pinyin += choice.m_dict[choice.m_idx].pinyin();
+            if (i != choices_count - 1)
+                pinyin.push_back(PinYin::s_delim);
+        }
+        DictItem new_item{ std::move(chinese), std::move(pinyin), 1 };
+        m_dict_trie.add_if_miss(new_item.acronym()).add_item(std::move(new_item));
+    }
+    reset_search();
+}
+
 void IME::reset_search() noexcept
 {
     m_candidates.clear();
@@ -112,9 +141,64 @@ void IME::reset_search() noexcept
     m_pinyin.clear();
 }
 
-void IME::choose(size_t idx) noexcept
+std::vector<std::pair<PinYin::TokenSpan, std::string>> IME::choices() const noexcept
 {
+    std::vector<std::pair<PinYin::TokenSpan, std::string>> result;
+    for (auto &c : m_choices) {
+        result.emplace_back(c.m_tokens, c.m_dict[c.m_idx].chinese());
+    }
+    return result;
+}
 
+PinYin::TokenSpan IME::tokens() const noexcept
+{
+    return m_pinyin.tokens();
+}
+
+PinYin::TokenSpan IME::fixed_tokens() const noexcept
+{
+    return m_pinyin.fixed_tokens();
+}
+
+PinYin::TokenSpan IME::unfixed_tokens() const noexcept
+{
+    return m_pinyin.unfixed_tokens();
+}
+
+std::string_view IME::pinyin() const noexcept
+{
+    return m_pinyin.pinyin();
+}
+
+std::string_view IME::fixed_letters() const noexcept
+{
+    return m_pinyin.fixed_letters();
+}
+
+std::string_view IME::unfixed_letters() const noexcept
+{
+    return m_pinyin.unfixed_letters();
+}
+
+IME::CandidatesCRef IME::choose(size_t idx)
+{
+    auto qi{ m_candidates.to_query_and_index(idx) };
+    Query &query{ qi.first.get() };
+    size_t q_idx{ qi.second };
+    if (!query.dict()) // should not happen
+        throw std::logic_error{ "Query has no dict" };
+    Dict &dict{ *(query.dict()) };
+    auto item{ query[q_idx] };
+    size_t item_index{ dict.item_index(item) };
+    if (item_index == Dict::s_npos) // should not happen
+        throw std::logic_error{ "Get dict item index failed" };
+    size_t fix_count{ m_pinyin.fix_count_for_tokens(query.tokens()) };
+    if (fix_count == 0)
+        throw std::logic_error{ "Tokens to fix is empty" };
+    if (!m_pinyin.fix_front_tokens(fix_count))
+        throw std::logic_error{ "Fix tokens failed" };
+    m_choices.emplace_back(Choice{ query.tokens(), dict, item_index });
+    return search_impl(m_pinyin.unfixed_tokens());
 }
 
 void IME::add_item_from_line(std::string_view line)
@@ -123,9 +207,10 @@ void IME::add_item_from_line(std::string_view line)
     DictItem item{ line_to_item(line) };
     std::string acronym;
     for (auto &s : item.syllables()) {
-        // DictItem's syllable will not be empty
-        PinYin::add_syllable(s);
-        acronym.push_back(s.front());
+        if (!s.empty()) {
+            PinYin::add_syllable(s);
+            acronym.push_back(s.front());
+        }
     }
     m_dict_trie.add_if_miss(acronym).add_item(std::move(item));
 }
@@ -161,7 +246,7 @@ DictItem IME::line_to_item(std::string_view line)
         pinyin = std::string_view{ line.begin() + start, line.end() };
     else
         pinyin = std::string_view{ line.begin() + start, line.begin() + end };
-    
+
     return DictItem{ chinese, pinyin, freq };
 }
 
