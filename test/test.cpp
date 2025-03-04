@@ -176,7 +176,7 @@ int main(int argc, char *argv[])
         std::string dict_file{ "../data/raw_dict_utf8.txt" };
         if (argc >= 2)
             dict_file = argv[1];
-        std::cout << "正在加载词典" << dict_file << "..." << std::endl;
+        std::cout << "正在加载词典(" << dict_file << ")..." << std::endl;
         ime.load(dict_file);
     } catch (const std::exception &e) {
         std::cerr << "加载词典文件失败: " << e.what() << std::endl;
