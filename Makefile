@@ -1,5 +1,5 @@
 CXX := g++
-CXXFLAGS := -std=c++20 -Iinclude -Wall -Wextra -O3
+CXXFLAGS := -std=c++20 -Iinclude -Wall -Wextra -O
 LIB_NAME := pinyin_ime
 SOURCE_DIR := source
 BUILD_DIR := build
