@@ -91,8 +91,6 @@ void add_pinyin(pinyin_ime::IME &ime)
     std::cout << "输入添加的拼音:" << std::endl;
     std::getline(std::cin, str);
     ime.push_back(str);
-    print_ime_state(ime);
-    print_ime_candidates(ime);
 }
 
 void backspace(pinyin_ime::IME &ime)
@@ -107,13 +105,10 @@ void backspace(pinyin_ime::IME &ime)
     }
     eat_line();
     ime.backspace(count);
-    print_ime_state(ime);
-    print_ime_candidates(ime);
 }
 
 void choose(pinyin_ime::IME &ime)
 {
-    print_ime_candidates(ime);
     size_t index;
     std::cout << "输入所选项索引:" << std::endl;
     if (!(std::cin >> index)) {
@@ -124,24 +119,18 @@ void choose(pinyin_ime::IME &ime)
     }
     eat_line();
     ime.choose(index);
-    print_ime_state(ime);
-    print_ime_candidates(ime);
 }
 
 void finish_search(pinyin_ime::IME &ime)
 {
     std::cout << "结束搜索" << std::endl;
     ime.finish_search();
-    print_ime_state(ime);
-    print_ime_candidates(ime);
 }
 
 void reset_search(pinyin_ime::IME &ime)
 {
     std::cout << "重置搜索" << std::endl;
     ime.reset_search();
-    print_ime_state(ime);
-    print_ime_candidates(ime);
 }
 
 void save(pinyin_ime::IME &ime)
