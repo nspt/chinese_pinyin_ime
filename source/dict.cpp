@@ -4,13 +4,19 @@ namespace pinyin_ime {
 
 bool Dict::add_item(DictItem item)
 {
+    std::string item_acronym{ item.acronym() };
     if (m_items.empty()) {
-        m_acronym = item.acronym();
+        m_acronym = item_acronym;
         m_items.emplace_back(std::move(item));
         return true;
     }
-    if (item.acronym() != m_acronym)
-        throw std::logic_error{ "Item acronym do not match" };
+    if (item_acronym != m_acronym) {
+        using std::string_literals::operator""s;
+        throw std::logic_error{
+            "Item acronym do not match, dict acronym: "s
+            +  m_acronym + ", item acronym: " + item_acronym
+        };
+    }
     auto begin_iter{ m_items.begin() };
     auto end_iter{ m_items.end() };
     auto insert_iter{ end_iter };
