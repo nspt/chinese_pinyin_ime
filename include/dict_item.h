@@ -6,7 +6,6 @@
 
 namespace pinyin_ime {
 
-class Dict;
 /**
  * \brief 词典项，用于存储一个字词的中文、拼音和频率（即优先级）。
  * 
