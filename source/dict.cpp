@@ -6,11 +6,11 @@ bool Dict::add_item(DictItem item)
 {
     if (m_items.empty()) {
         m_items.emplace_back(std::move(item));
-        build_acronym();
+        m_acronym = item.acronym();
         return true;
     }
     if (item.acronym() != m_acronym)
-        throw std::logic_error{ "Item syllables wrong" };
+        throw std::logic_error{ "Item acronym do not match" };
     auto begin_iter{ m_items.begin() };
     auto end_iter{ m_items.end() };
     auto insert_iter{ end_iter };
@@ -62,7 +62,7 @@ const DictItem& Dict::at(size_t i) const
     return m_items.at(i);
 }
 
-Dict::ItemCRefVec Dict::search(std::span<const PinYin::Token> tokens) const
+Dict::ItemCRefVec Dict::search(PinYin::TokenSpan tokens) const
 {
     enum class MatchResult {
         Fail, Partial, Full
@@ -118,19 +118,6 @@ Dict::ItemCRefVec Dict::search(std::string_view pinyin) const
         }
     }
     return results;
-}
-
-std::string& Dict::build_acronym()
-{
-    m_acronym.clear();
-    if (m_items.empty())
-        return m_acronym;
-    for (auto &s : m_items[0].syllables()) {
-        if (s.empty())
-            continue;
-        m_acronym.push_back(s.front());
-    }
-    return m_acronym;
 }
 
 Dict::ItemCRefVec Dict::search(const std::regex &pattern) const
