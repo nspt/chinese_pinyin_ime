@@ -24,6 +24,7 @@ lib_shared: $(LIB_DIR)/lib$(LIB_NAME).so
 
 # 测试程序构建（依赖两种库）
 test: lib_static lib_shared
+	$(MAKE) -C $(TEST_DIR) clean
 	$(MAKE) -C $(TEST_DIR)
 
 # 清理所有生成文件

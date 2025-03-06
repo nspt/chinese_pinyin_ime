@@ -155,56 +155,74 @@ void print_cmd_list()
     std::cout << "    8. 退出" << std::endl;
 }
 
+void print_exception(const std::exception& e, bool nested = false)
+{
+    if (nested)
+        std::cerr << ": " << e.what();
+    else
+        std::cerr << e.what();
+    try {
+        std::rethrow_if_nested(e);
+        std::cerr << '\n';
+    } catch (const std::exception& nestedException) {
+        print_exception(nestedException, true);
+    } catch (...) {}
+}
+
 int main(int argc, char *argv[])
 {
     using namespace pinyin_ime;
 
-    int cmd;
-    IME ime;
     try {
-        std::string dict_file{ "../data/raw_dict_utf8.txt" };
-        if (argc >= 2)
-            dict_file = argv[1];
-        std::cout << "正在加载词典(" << dict_file << ")..." << std::endl;
-        ime.load(dict_file);
-    } catch (const std::exception &e) {
-        std::cerr << "加载词典文件失败: " << e.what() << std::endl;
-        return 1;
-    }
-    print_cmd_list();
-    while (std::cin >> cmd) {
-        eat_line();
-        switch (cmd) {
-        case 0:
-            print_ime_state(ime);
-            break;
-        case 1:
-            print_ime_candidates(ime);
-            break;
-        case 2:
-            add_pinyin(ime);
-            break;
-        case 3:
-            backspace(ime);
-            break;
-        case 4:
-            choose(ime);
-            break;
-        case 5:
-            finish_search(ime);
-            break;
-        case 6:
-            reset_search(ime);
-            break;
-        case 7:
-            save(ime);
-            break;
-        case 8:
-            return 0;
-        default:
-            break;
+        int cmd;
+        IME ime;
+        try {
+            std::string dict_file{ "../data/raw_dict_utf8.txt" };
+            if (argc >= 2)
+                dict_file = argv[1];
+            std::cout << "正在加载词典(" << dict_file << ")..." << std::endl;
+            ime.load(dict_file);
+        } catch (const std::exception &e) {
+            std::throw_with_nested(std::runtime_error{"加载词典文件失败"});
         }
         print_cmd_list();
+        while (std::cin >> cmd) {
+            eat_line();
+            switch (cmd) {
+            case 0:
+                print_ime_state(ime);
+                break;
+            case 1:
+                print_ime_candidates(ime);
+                break;
+            case 2:
+                add_pinyin(ime);
+                break;
+            case 3:
+                backspace(ime);
+                break;
+            case 4:
+                choose(ime);
+                break;
+            case 5:
+                finish_search(ime);
+                break;
+            case 6:
+                reset_search(ime);
+                break;
+            case 7:
+                save(ime);
+                break;
+            case 8:
+                return 0;
+            default:
+                break;
+            }
+            print_cmd_list();
+        }
+        return 0;
+    } catch (const std::exception &e) {
+        print_exception(e);
+        return 1;
     }
-    return 0;
 }
