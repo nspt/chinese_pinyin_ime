@@ -47,10 +47,10 @@ void print_ime_state(pinyin_ime::IME &ime)
     }
     std::cout << '\n';
     std::cout << "    已选择词:\n";
-    auto choices{ ime.choices() };
+    auto &choices{ ime.choices().get() };
     for (size_t i{ 0 }; i < choices.size(); ++i) {
-        auto &tokens{ choices[i].first };
-        auto &chinese{ choices[i].second };
+        auto tokens{ choices[i].tokens() };
+        auto chinese{ choices[i].chinese() };
         std::cout << std::setw(2) << i << ' '
                   << chinese << ' ';
         for (auto &token : tokens) {

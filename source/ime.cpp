@@ -141,13 +141,9 @@ void IME::reset_search() noexcept
     m_pinyin.clear();
 }
 
-std::vector<std::pair<PinYin::TokenSpan, std::string>> IME::choices() const noexcept
+IME::ChoiceVecCRef IME::choices() const noexcept
 {
-    std::vector<std::pair<PinYin::TokenSpan, std::string>> result;
-    for (auto &c : m_choices) {
-        result.emplace_back(c.m_tokens, c.m_dict[c.m_idx].chinese());
-    }
-    return result;
+    return m_choices;
 }
 
 PinYin::TokenSpan IME::tokens() const noexcept
@@ -248,6 +244,20 @@ DictItem IME::line_to_item(std::string_view line)
         pinyin = std::string_view{ line.begin() + start, line.begin() + end };
 
     return DictItem{ chinese, pinyin, freq };
+}
+
+IME::Choice::Choice(PinYin::TokenSpan tokens, Dict &dict, size_t index) noexcept
+    : m_tokens{ tokens }, m_dict{ dict }, m_idx{ index }
+{}
+
+PinYin::TokenSpan IME::Choice::tokens() const noexcept
+{
+    return m_tokens;
+}
+
+std::string_view IME::Choice::chinese() const noexcept
+{
+    return m_dict[m_idx].chinese();
 }
 
 } // namespace pinyin_ime

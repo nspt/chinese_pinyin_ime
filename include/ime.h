@@ -15,6 +15,22 @@ namespace pinyin_ime {
 class IME {
 public:
     using CandidatesCRef = std::reference_wrapper<const Candidates>;
+
+    class Choice {
+    public:
+        PinYin::TokenSpan tokens() const noexcept;
+        std::string_view chinese() const noexcept;
+    private:
+        Choice(PinYin::TokenSpan tokens, Dict &dict, size_t index) noexcept;
+        PinYin::TokenSpan m_tokens;
+        Dict& m_dict;
+        size_t m_idx;
+
+        friend class IME;
+    };
+    using ChoiceVecCRef = std::reference_wrapper<const std::vector<Choice>>;
+
+
     IME() = default;
     IME(std::string_view dict_file);
     IME(const IME&) = delete;
@@ -34,7 +50,7 @@ public:
     void finish_search(bool inc_freq = true, bool add_new_sentence = true);
     void reset_search() noexcept;
 
-    std::vector<std::pair<PinYin::TokenSpan, std::string>> choices() const noexcept;
+    ChoiceVecCRef choices() const noexcept;
 
     PinYin::TokenSpan tokens() const noexcept;
     PinYin::TokenSpan fixed_tokens() const noexcept;
@@ -45,14 +61,6 @@ public:
     std::string_view unfixed_letters() const noexcept;
 
 private:
-    struct Choice {
-        Choice(PinYin::TokenSpan tokens, Dict &dict, size_t index)
-            : m_tokens{ tokens }, m_dict{ dict }, m_idx{ index }
-        {}
-        PinYin::TokenSpan m_tokens;
-        Dict& m_dict;
-        size_t m_idx;
-    };
     CandidatesCRef search_impl(PinYin::TokenSpan tokens);
     DictItem line_to_item(std::string_view line);
     BasicTrie<Dict> m_dict_trie;
