@@ -1,5 +1,6 @@
 #include "dict_item.h"
-#include "dict.h"
+#include "pinyin.h"
+#include <ranges>
 
 namespace pinyin_ime {
 
