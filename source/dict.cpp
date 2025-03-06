@@ -5,8 +5,8 @@ namespace pinyin_ime {
 bool Dict::add_item(DictItem item)
 {
     if (m_items.empty()) {
-        m_items.emplace_back(std::move(item));
         m_acronym = item.acronym();
+        m_items.emplace_back(std::move(item));
         return true;
     }
     if (item.acronym() != m_acronym)
