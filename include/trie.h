@@ -36,8 +36,8 @@ public:
      * \param str 要添加的字符串。
      * \param args 用于初始化 Data 的可变模板参数。
      * \return str 所绑定的 Data 对象引用。
-     * \throws std::logic_error str为空
-     *         std::exception 如果发生错误
+     * \throws std::logic_error str为空。
+     *         std::exception 如果发生错误。
      */
     template <class... Args>
     Data& add_if_miss(std::string_view str, Args&&... args)
@@ -73,8 +73,8 @@ public:
      * \param str 要添加的字符串。
      * \param args 用于初始化 Data 的可变模板参数。
      * \return str 所绑定的 Data 对象引用。
-     * \throws std::logic_error str为空或字符串已存在
-     *         std::exception 如果发生错误
+     * \throws std::logic_error str为空或字符串已存在。
+     *         std::exception 如果发生错误。
      */
     template <class... Args>
     Data& add(std::string_view str, Args&&... args)
@@ -89,8 +89,8 @@ public:
      * \param str 要添加的字符串。
      * \param args 用于初始化 Data 的可变模板参数。
      * \return str 所绑定的 Data 对象引用。
-     * \throws std::logic_error str为空
-     *         std::exception 如果发生错误
+     * \throws std::logic_error str为空。
+     *         std::exception 如果发生错误。
      */
     template <class... Args>
     Data& add_or_assign(std::string_view str, Args&&... args)
@@ -137,7 +137,7 @@ public:
     }
 
     /**
-     * \brief 获取字符串在 BasicTrie 中的匹配程度，见 MatchResult
+     * \brief 获取字符串在 BasicTrie 中的匹配程度，见 MatchResult。
      */
     MatchResult match(std::string_view str) const noexcept
     {
@@ -347,8 +347,8 @@ private:
      * \param assign 是否在字符串已存在时构造新 Data 进行替换
      * \param args 用于初始化 Data 的可变模板参数。
      * \return str 所绑定的 Data 对象引用。
-     * \throws std::logic_error str为空，或字符串已存在但不允许替换绑定对象
-     *         std::exception 如果发生错误
+     * \throws std::logic_error str为空，或字符串已存在但不允许替换绑定对象。
+     *         std::exception 如果发生错误。
      */
     template <class... Args>
     Data& add_or_assign(std::string_view str, bool assign, Args&&... args)

@@ -49,10 +49,10 @@ public:
 
     /**
      * \brief 根据内置策略，自动增加给定索引对应的 DictItem 的 freq。
-     * \param item_indexes 指定索引列表。
+     * \param item_indexes 指定索引列表，包含需要增加 freq 的 DictItem 的索引。
      * \note DictItem 的 freq 增加后可能因为重新排序导致位置变化，调用此函数后
      *       之前获取的关于 DictItem 的引用、索引不再可信。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     void auto_inc_freq(std::span<size_t> item_indexes);
 
@@ -85,7 +85,7 @@ public:
 
     /**
      * \brief 封装接口，调用内部 vector<DictItem> 的 at() const。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     const DictItem& at(size_t i) const;
 
@@ -96,7 +96,7 @@ public:
      *          仅在没有完全匹配结果的情况下加入结果中。
      * \param tokens 用于查找的 PinYin::TokenSpan。
      * \return 符合条件的 DictItem 的列表：vector，元素类型为 reference_type<const DictItem>。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     ItemCRefVec search(PinYin::TokenSpan tokens) const;
 
@@ -104,7 +104,7 @@ public:
      * \brief 查找符合给定 std::string_view 的 DictItem。
      * \param pinyin 用于查找的 std::string_view。
      * \return 符合条件的 DictItem 的列表：vector，元素类型为 reference_type<const DictItem>。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     ItemCRefVec search(std::string_view pinyin) const;
 
@@ -112,39 +112,39 @@ public:
      * \brief 查找符合给定 std::regex 的 DictItem。
      * \param pattern 用于查找的 std::regex。
      * \return 符合条件的 DictItem 的列表：vector，元素类型为 reference_type<const DictItem>。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     ItemCRefVec search(const std::regex &pattern) const;
 private:
     /**
      * \brief 根据策略计算给定索引对应的 DictItem 的建议 freq 增长值。
-     * \param idx DictItem 的索引
+     * \param idx DictItem 的索引。
      * \return 对该 DictItem 的建议 freq 增长值，若 idx 超出范围，返回 0。
      */
     uint32_t suggest_inc_freq(size_t idx) const noexcept;
 
     /**
      * \brief 对 vector<DictItem> 进行排序，比较函数见 Dict::item_comp()
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     void sort();
     
     std::vector<DictItem> m_items;
-    // 词典 acronym，取自首个加入的 DictItem
+    // 词典 acronym，取自首个加入的 DictItem。
     std::string m_acronym;
 
     /**
-     * \brief DictItem 排序比较器
+     * \brief DictItem 排序比较器。
      * \details 比较策略为：
      *          1. 若音节数不同，则音节少者优先级高。
      *          2. 若音节数相同，逐一比较单个音节：
      *                 1. 若单个音节长度不同，则单个音节短者优先级高。
      *                 2. 若单个音节长度一致，则按字典序比较单个音节，字典序排前者优先级高。
      *          3. 若音节列表完全一致，则 freq 大者优先级高。
-     * \param l 参与比较的 DictItem 的引用
-     * \param r 参与比较的 DictItem 的引用
+     * \param l 参与比较的 DictItem 的引用。
+     * \param r 参与比较的 DictItem 的引用。
      * \return 若 l 优先级高于或等于 r，返回 true，否则返回 false。
-     * \throws std::exception 如果发生错误
+     * \throws std::exception 如果发生错误。
      */
     static bool item_comp(const DictItem &l, const DictItem &r) noexcept;
 };

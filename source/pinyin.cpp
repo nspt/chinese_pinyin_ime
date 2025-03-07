@@ -18,7 +18,7 @@ PinYin::PinYin(std::string str)
     update_tokens();
 }
 
-void PinYin::reserve(size_t cap)
+void PinYin::set_capacity(size_t cap)
 {
     std::vector<std::tuple<size_t, size_t, TokenType>> tokens;
     for (auto &token : m_tokens) {
