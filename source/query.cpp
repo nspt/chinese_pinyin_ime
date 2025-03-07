@@ -18,8 +18,7 @@ Query::Query(Query&& other) noexcept
       m_tokens{ other.m_tokens },
       m_items{ std::move(other.m_items) }
 {
-    other.m_dict = nullptr;
-    other.m_tokens = {};
+    other.clear();
 }
 
 Query& Query::operator=(Query &&other) noexcept
@@ -28,9 +27,7 @@ Query& Query::operator=(Query &&other) noexcept
     m_dict = other.m_dict;
     m_tokens = other.m_tokens;
     m_items = std::move(other.m_items);
-
-    other.m_dict = nullptr;
-    other.m_tokens = {};
+    other.clear();
     return *this;
 }
 
@@ -90,6 +87,7 @@ Query::ItemCRef Query::operator[](size_t idx) const noexcept
 
 void Query::clear() noexcept
 {
+    m_dict = nullptr;
     m_tokens = {};
     m_items.clear();
 }

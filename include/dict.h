@@ -128,7 +128,7 @@ private:
      * \throws std::exception 如果发生错误。
      */
     void sort();
-    
+
     std::vector<DictItem> m_items;
     // 词典 acronym，取自首个加入的 DictItem。
     std::string m_acronym;
