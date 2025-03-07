@@ -5,10 +5,17 @@
 
 namespace pinyin_ime {
 
+/**
+ * \brief IME 向外部提供的候选词类，本质上是对多个 Query 对象（std::vector<Query>）的封装，
+ *        使外部能以连续的形式访问多个 Query 对象的查询结果。
+ */
 class Candidates {
 public:
     using QueryRef = std::reference_wrapper<Query>;
 
+    /**
+     * \brief Candidates 迭代器，解引用获取 const DictItem&。
+     */
     class Iterator {
     public:
         Iterator() = default;
@@ -21,7 +28,7 @@ public:
         }
         const DictItem* operator->() const
         {
-            return &((*m_candidates)[m_idx].get());
+            return &((*m_candidates)[m_idx]);
         }
         Iterator& operator++()
         {
@@ -76,17 +83,54 @@ public:
         friend class Candidates;
     };
 
-    void push_back(Query query);
+    /**
+     * \brief 返回 Candidates 中候选词 DictItem 的总数。
+     */
     size_t size() const noexcept;
+
+    /**
+     * \brief 判断 Candidates 是否为空。
+     */
     bool empty() const noexcept;
-    std::pair<QueryRef, size_t> to_query_and_index(const Iterator& it);
-    std::pair<QueryRef, size_t> to_query_and_index(size_t idx);
-    Query::ItemCRef operator[](size_t idx) const noexcept;
-    void clear() noexcept;
+
+    /**
+     * \brief 获取 idx 对应的 const DictItem&。
+     */
+    const DictItem& operator[](size_t idx) const noexcept;
+
+    /**
+     * \brief 返回起始迭代器。
+     */
     Iterator begin() const noexcept;
+
+    /**
+     * \brief 返回结束迭代器。
+     */
     Iterator end() const noexcept;
 private:
+
+    /**
+     * \brief 尾添加新的 Query。
+     */
+    void push_back(Query query);
+
+    /**
+     * \brief 清空 Query。
+     */
+    void clear() noexcept;
+
+    /**
+     * \brief 将 Candidates 迭代器转换为内部 Query 和 Query 的结果索引。
+     */
+    std::pair<QueryRef, size_t> to_query_and_index(const Iterator& it);
+
+    /**
+     * \brief 将 Candidates 索引转换为内部 Query 和 Query 的结果索引。
+     */
+    std::pair<QueryRef, size_t> to_query_and_index(size_t idx);
+
     std::vector<Query> m_queries;
+    friend class IME;
 };
 
 } // namespace pinyin_ime

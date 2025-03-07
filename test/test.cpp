@@ -79,9 +79,9 @@ void print_ime_candidates(pinyin_ime::IME &ime)
     eat_line();
     for (size_t i{ 0 }; i < size; ++i) {
         std::cout << std::setw(4) << i << ' '
-                  << candidates[i].get().chinese() << ' '
-                  << candidates[i].get().freq() << ' '
-                  << candidates[i].get().pinyin() << std::endl;
+                  << candidates[i].chinese() << ' '
+                  << candidates[i].freq() << ' '
+                  << candidates[i].pinyin() << std::endl;
     }
 }
 

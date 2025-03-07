@@ -46,7 +46,7 @@ std::pair<Candidates::QueryRef, size_t> Candidates::to_query_and_index(size_t id
     throw std::out_of_range{ "Index out of range" };
 }
 
-Query::ItemCRef Candidates::operator[](size_t idx) const noexcept
+const DictItem& Candidates::operator[](size_t idx) const noexcept
 {
     for (auto &query : m_queries) {
         auto query_size{ query.size() };
