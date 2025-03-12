@@ -6,8 +6,8 @@
 namespace pinyin_ime {
 
 /**
- * \brief IME 向外部提供的候选词类，本质上是对多个 Query 对象（std::vector<Query>）的封装，
- *        使外部能以连续的形式访问多个 Query 对象的查询结果。
+ * \brief IME 向外部提供候选词的类，本质上是对多个 Query 对象（std::vector<Query>）的封装，
+ *        使外部能以连续的形式访问多个 Query 对象的查询结果的集合。
  */
 class Candidates {
 public:

@@ -11,7 +11,7 @@
 namespace pinyin_ime {
 
 /**
- * \brief 字典数（Trie）模板类，每个存在于树中的字符串都支持
+ * \brief 字典树（Trie）模板类，每个存在于树中的字符串都支持
  *        且必须绑定一个允许默认构造的类对象（即模板参数 Data）。
  */
 template <class Data>

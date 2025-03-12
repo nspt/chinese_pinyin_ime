@@ -8,7 +8,8 @@
 namespace pinyin_ime {
 
 /**
- * \brief 负责从绑定的 BasicTire<Dict> 查询符合给定 PinYin::TokenSpan 的 DictItem。
+ * \brief 负责从绑定的词典树 BasicTire<Dict> 中查询符合给定 PinYin::TokenSpan 的 DictItem。
+ * \note Query 只应在 IME 内部使用。
  * \details Query 对象供 IME 内部使用，其本身几乎不保存资源，而是保存对资源的引用，使用时需要谨慎：
  *              1. Query 对象以引用的形式绑定到 BasicTrie<Dict>，因此使用 Query 对象时必须
  *                 保证 BasicTrie<Dict> 的存在
