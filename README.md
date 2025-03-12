@@ -12,13 +12,13 @@
 
 # 快速开始
 
-克隆此项目后，进入项目目录执行make即可（项目的gitee链接为 `https://gitee.com/xiewei9608/chinese_pinyin_ime.git`）。
+克隆此项目后，进入项目目录执行make即可。
 
 ```sh
 git clone https://github.com/nspt/chinese_pinyin_ime.git
-
+# 或者使用 gitee 链接
+# git clone https://gitee.com/xiewei9608/chinese_pinyin_ime.git
 cd chinese_pinyin_ime
-
 make
 ```
 
