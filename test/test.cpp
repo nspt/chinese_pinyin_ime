@@ -47,7 +47,7 @@ void print_ime_state(pinyin_ime::IME &ime)
     }
     std::cout << '\n';
     std::cout << "    已选择词:\n";
-    auto &choices{ ime.choices().get() };
+    auto &choices{ ime.choices() };
     for (size_t i{ 0 }; i < choices.size(); ++i) {
         auto tokens{ choices[i].tokens() };
         auto chinese{ choices[i].chinese() };
@@ -63,7 +63,7 @@ void print_ime_state(pinyin_ime::IME &ime)
 
 void print_ime_candidates(pinyin_ime::IME &ime)
 {
-    auto &candidates{ ime.candidates().get() };
+    auto &candidates{ ime.candidates() };
     size_t size{ 0 };
     std::cout << "候选词共有" << candidates.size()
               << "个,输入要打印的个数(0表示不打印,大于等于" << candidates.size()

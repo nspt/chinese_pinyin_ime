@@ -23,9 +23,6 @@ namespace pinyin_ime {
  */
 class Query {
 public:
-    using ItemCRefVecCRef = std::reference_wrapper<const Dict::ItemCRefVec>;
-    using ItemCRef = std::reference_wrapper<const DictItem>;
-
     /**
      * \brief 构造函数，仅绑定 BasicTrie<Dict>。
      * \param dict_trie Query 对象绑定的 BasicTrie<Dict>。
@@ -88,9 +85,9 @@ public:
     PinYin::TokenSpan tokens() const noexcept;
 
     /**
-     * \brief 返回此对象查询结果的const引用（reference_wrapper，以免外部自动拷贝）。
+     * \brief 返回此对象查询结果的const引用。
      */
-    ItemCRefVecCRef items() const noexcept;
+    const Dict::ItemCRefVec& items() const noexcept;
 
     /**
      * \brief 返回此对象查询结果的 size()。
@@ -103,9 +100,9 @@ public:
     bool empty() const noexcept;
 
     /**
-     * \brief 访问此对象查询结果中 DictItem 的引用（reference_wrapper，以免外部自动拷贝）。
+     * \brief 访问此对象查询结果中 DictItem 的引用。
      */
-    ItemCRef operator[](size_t idx) const noexcept;
+    const DictItem& operator[](size_t idx) const noexcept;
 
     /**
      * \brief 清除查询结果及查询所用的 TokenSpan。

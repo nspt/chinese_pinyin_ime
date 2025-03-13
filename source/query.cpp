@@ -65,7 +65,7 @@ Dict* Query::dict() const noexcept
     return m_dict;
 }
 
-Query::ItemCRefVecCRef Query::items() const noexcept
+const Dict::ItemCRefVec& Query::items() const noexcept
 {
     return m_items;
 }
@@ -80,7 +80,7 @@ bool Query::empty() const noexcept
     return m_items.empty();
 }
 
-Query::ItemCRef Query::operator[](size_t idx) const noexcept
+const DictItem& Query::operator[](size_t idx) const noexcept
 {
     return m_items[idx];
 }

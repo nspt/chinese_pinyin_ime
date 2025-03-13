@@ -155,7 +155,7 @@ PinYin::TokenSpan PinYin::backspace(size_t count)
 PinYin::TokenSpan PinYin::insert(size_t pos, std::string_view str)
 {
     if (pos < m_fixed_letters)
-        throw std::logic_error{ "Can't insert before fixed position" };
+        throw std::logic_error{ "Can't insert pinyin before fixed position" };
     if (m_pinyin.size() + str.size() >= m_pinyin.capacity())
         return unfixed_tokens(); // no effect
     m_pinyin.insert(pos, str);

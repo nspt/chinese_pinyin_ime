@@ -7,7 +7,8 @@ namespace pinyin_ime {
 
 /**
  * \brief IME 向外部提供候选词的类，本质上是对多个 Query 对象（std::vector<Query>）的封装，
- *        使外部能以连续的形式访问多个 Query 对象的查询结果的集合。
+ *        使外部能以连续的形式访问多个 Query 对象的查询结果的集合。\
+ * \details 借助 shared_ptr，Candidates 允许外部高效拷贝使用。
  */
 class Candidates {
 public:
@@ -84,6 +85,11 @@ public:
     };
 
     /**
+     * \brief 构造函数
+     */
+    Candidates();
+
+    /**
      * \brief 返回 Candidates 中候选词 DictItem 的总数。
      */
     size_t size() const noexcept;
@@ -121,15 +127,17 @@ private:
 
     /**
      * \brief 将 Candidates 迭代器转换为内部 Query 和 Query 的结果索引。
+     * \throws std::out_of_range 如果 it 无效。
      */
     std::pair<QueryRef, size_t> to_query_and_index(const Iterator& it);
 
     /**
      * \brief 将 Candidates 索引转换为内部 Query 和 Query 的结果索引。
+     * \throws std::out_of_range 如果 idx 无效。
      */
     std::pair<QueryRef, size_t> to_query_and_index(size_t idx);
 
-    std::vector<Query> m_queries;
+    std::shared_ptr<std::vector<Query>> m_queries;
     friend class IME;
 };
 

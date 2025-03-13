@@ -48,12 +48,12 @@ void IME::save(std::string_view dict_file) const
     }
 }
 
-IME::CandidatesCRef IME::candidates() const noexcept
+const Candidates& IME::candidates() const noexcept
 {
     return m_candidates;
 }
 
-IME::CandidatesCRef IME::search(std::string_view pinyin)
+const Candidates&IME::search(std::string_view pinyin)
 {
     std::string_view cur_pinyin{ m_pinyin.pinyin() };
     if (!pinyin.starts_with(cur_pinyin)) {
@@ -71,7 +71,7 @@ IME::CandidatesCRef IME::search(std::string_view pinyin)
     }
 }
 
-IME::CandidatesCRef IME::search_impl(PinYin::TokenSpan tokens)
+const Candidates& IME::search_impl(PinYin::TokenSpan tokens)
 {
     std::stack<PinYin::TokenSpan> tokens_for_search;
     size_t tokens_size{ tokens.size() };
@@ -95,12 +95,12 @@ IME::CandidatesCRef IME::search_impl(PinYin::TokenSpan tokens)
     return m_candidates;
 }
 
-IME::CandidatesCRef IME::push_back(std::string_view pinyin)
+const Candidates& IME::push_back(std::string_view pinyin)
 {
     return search_impl(m_pinyin.push_back(pinyin));
 }
 
-IME::CandidatesCRef IME::backspace(size_t count)
+const Candidates& IME::backspace(size_t count)
 {
     // TODO: behaviour
     return search_impl(m_pinyin.backspace(count));
@@ -141,7 +141,7 @@ void IME::reset_search() noexcept
     m_pinyin.clear();
 }
 
-IME::ChoiceVecCRef IME::choices() const noexcept
+const std::vector<IME::Choice>& IME::choices() const noexcept
 {
     return m_choices;
 }
@@ -176,25 +176,32 @@ std::string_view IME::unfixed_letters() const noexcept
     return m_pinyin.unfixed_letters();
 }
 
-IME::CandidatesCRef IME::choose(size_t idx)
+const Candidates& IME::choose(size_t idx)
 {
-    auto qi{ m_candidates.to_query_and_index(idx) };
-    Query &query{ qi.first.get() };
-    size_t q_idx{ qi.second };
-    if (!query.dict()) // should not happen
-        throw std::logic_error{ "Query has no dict" };
-    Dict &dict{ *(query.dict()) };
-    auto item{ query[q_idx] };
-    size_t item_index{ dict.item_index(item) };
-    if (item_index == Dict::s_npos) // should not happen
-        throw std::logic_error{ "Get dict item index failed" };
-    size_t fix_count{ m_pinyin.fix_count_for_tokens(query.tokens()) };
-    if (fix_count == 0)
-        throw std::logic_error{ "Tokens to fix is empty" };
-    if (!m_pinyin.fix_front_tokens(fix_count))
-        throw std::logic_error{ "Fix tokens failed" };
-    m_choices.emplace_back(Choice{ query.tokens(), dict, item_index });
-    return search_impl(m_pinyin.unfixed_tokens());
+    using std::string_literals::operator""s;
+    try {
+        auto qi{ m_candidates.to_query_and_index(idx) };
+        Query &query{ qi.first.get() };
+        size_t q_idx{ qi.second };
+        if (!query.dict()) // should not happen
+            throw std::logic_error{ "Query has no dict" };
+        Dict &dict{ *(query.dict()) };
+        auto item{ query[q_idx] };
+        size_t item_index{ dict.item_index(item) };
+        if (item_index == Dict::s_npos) // should not happen
+            throw std::logic_error{ "Get dict item index failed" };
+        size_t fix_count{ m_pinyin.fix_count_for_tokens(query.tokens()) };
+        if (fix_count == 0)
+            throw std::logic_error{ "Tokens to fix is empty" };
+        if (!m_pinyin.fix_front_tokens(fix_count))
+            throw std::logic_error{ "Fix tokens failed" };
+        m_choices.emplace_back(Choice{ query.tokens(), dict, item_index });
+        return search_impl(m_pinyin.unfixed_tokens());
+    } catch (const std::exception &e) {
+        std::throw_with_nested(
+            std::runtime_error{ "Choose candidate of index "s
+                + std::to_string(idx) + "failed" });
+    }
 }
 
 void IME::add_item_from_line(std::string_view line)
@@ -220,23 +227,23 @@ DictItem IME::line_to_item(std::string_view line)
 
     start = line.find_first_not_of(" \t\r");
     if (start == std::string::npos)
-        throw std::runtime_error{ "Line format wrong" };
+        throw std::invalid_argument{ "Line format wrong" };
     end = line.find_first_of(" \t\r", start);
     if (end == std::string::npos)
-        throw std::runtime_error{ "Line format wrong" };
+        throw std::invalid_argument{ "Line format wrong" };
     chinese = std::string_view{ line.begin() + start, line.begin() + end };
 
     start = line.find_first_not_of(" \t\r", end);
     if (start == std::string::npos)
-        throw std::runtime_error{ "Line format wrong" };
+        throw std::invalid_argument{ "Line format wrong" };
     end = line.find_first_of(" \t\r", start);
     if (end == std::string::npos)
-        throw std::runtime_error{ "Line format wrong" };
+        throw std::invalid_argument{ "Line format wrong" };
     freq = static_cast<uint32_t>(std::stoul(std::string{ line.begin() + start, line.begin() + end }));
-    
+
     start = line.find_first_not_of(" \t\r", end);
     if (start == std::string::npos)
-        throw std::runtime_error{ "Line format wrong" };
+        throw std::invalid_argument{ "Line format wrong" };
     end = line.find_first_of(" \t\r", start);
     if (end == std::string::npos)
         pinyin = std::string_view{ line.begin() + start, line.end() };
