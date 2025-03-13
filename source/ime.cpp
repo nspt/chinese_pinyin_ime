@@ -186,8 +186,7 @@ const Candidates& IME::choose(size_t idx)
         if (!query.dict()) // should not happen
             throw std::logic_error{ "Query has no dict" };
         Dict &dict{ *(query.dict()) };
-        auto item{ query[q_idx] };
-        size_t item_index{ dict.item_index(item) };
+        size_t item_index{ dict.item_index(query[q_idx]) };
         if (item_index == Dict::s_npos) // should not happen
             throw std::logic_error{ "Get dict item index failed" };
         size_t fix_count{ m_pinyin.fix_count_for_tokens(query.tokens()) };
