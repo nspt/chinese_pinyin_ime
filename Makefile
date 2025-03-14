@@ -4,17 +4,17 @@ LIB_NAME := pinyin_ime
 SOURCE_DIR := source
 BUILD_DIR := build
 LIB_DIR := lib
-TEST_DIR := test
+EXAMPLE_DIR := example
 
 # 定义静态库和动态库的源文件及目标文件路径
 SOURCES := $(wildcard $(SOURCE_DIR)/*.cpp)
 STATIC_OBJECTS := $(patsubst $(SOURCE_DIR)/%.cpp, $(BUILD_DIR)/static_objs/%.o, $(SOURCES))
 SHARED_OBJECTS := $(patsubst $(SOURCE_DIR)/%.cpp, $(BUILD_DIR)/shared_objs/%.o, $(SOURCES))
 
-.PHONY: all lib_static lib_shared test clean
+.PHONY: all lib_static lib_shared example clean
 
-# 默认目标：同时生成静态库和动态库，再编译测试程序
-all: lib_static lib_shared test
+# 默认目标：同时生成静态库和动态库，再编译示例程序
+all: lib_static lib_shared example
 
 # 生成静态库
 lib_static: $(LIB_DIR)/lib$(LIB_NAME).a
@@ -22,15 +22,15 @@ lib_static: $(LIB_DIR)/lib$(LIB_NAME).a
 # 生成动态库
 lib_shared: $(LIB_DIR)/lib$(LIB_NAME).so
 
-# 测试程序构建（依赖两种库）
-test: lib_static lib_shared
-	$(MAKE) -C $(TEST_DIR) clean
-	$(MAKE) -C $(TEST_DIR)
+# 示例程序构建（依赖两种库）
+example: lib_static lib_shared
+	$(MAKE) -C $(EXAMPLE_DIR) clean
+	$(MAKE) -C $(EXAMPLE_DIR)
 
 # 清理所有生成文件
 clean:
 	rm -rf $(BUILD_DIR) $(LIB_DIR)
-	$(MAKE) -C $(TEST_DIR) clean
+	$(MAKE) -C $(EXAMPLE_DIR) clean
 
 # 静态库规则（使用普通目标文件）
 $(LIB_DIR)/lib$(LIB_NAME).a: $(STATIC_OBJECTS)

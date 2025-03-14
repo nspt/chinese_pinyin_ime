@@ -22,9 +22,9 @@ cd chinese_pinyin_ime
 make
 ```
 
-make执行后，`lib` 目录下会生成静态库 `libpinyin_ime.a` 和动态库 `libpinyin_ime.so`，`test` 目录下会生成基于动态库的测试程序 `test_shared` 和基于静态库的测试程序 `test_static`。
+make执行后，`lib` 目录下会生成静态库 `libpinyin_ime.a` 和动态库 `libpinyin_ime.so`，`example` 目录下会生成基于动态库的示例程序 `example_shared` 和基于静态库的示例程序 `example_static`。
 
-库的基本使用方法见测试程序源码 `test/test.cpp`，默认词典库文件位于 `data/raw_dict_utf8.txt`。
+可以通过示例程序源码 `example/example.cpp` 查看库的基本使用方法，默认词典库文件位于 `data/raw_dict_utf8.txt`。
 
 需要交叉编译的场景请自行修改 `Makefile` 的 `CXX` 变量。
 
