@@ -1,4 +1,5 @@
 #include "ime.h"
+#include <map>
 #include <fstream>
 
 namespace pinyin_ime {

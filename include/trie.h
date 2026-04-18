@@ -4,9 +4,9 @@
 #include <string>
 #include <stack>
 #include <memory>
-#include <exception>
 #include <cassert>
 #include <utility>
+#include <stdexcept>
 
 namespace pinyin_ime {
 
