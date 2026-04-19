@@ -1,3 +1,9 @@
+#ifdef _WIN32
+#  ifndef NOMINMAX
+#    define NOMINMAX // 禁用 Windows 的 min/max 宏
+#  endif
+#  include <windows.h>
+#endif
 #include <iostream>
 #include <iomanip>
 #include <limits>
@@ -174,6 +180,11 @@ int main(int argc, char *argv[])
     using namespace pinyin_ime;
 
     try {
+#ifdef _WIN32
+        // 设置 Windows 控制台为 UTF-8
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+#endif
         int cmd;
         IME ime;
         try {
