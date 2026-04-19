@@ -184,7 +184,7 @@ bool Dict::item_comp(const DictItem &l, const DictItem &r) noexcept
             return l_syllables[i].size() < r_syllables[i].size();
         return l_syllables[i] < r_syllables[i];
     }
-    return l.freq() >= r.freq();
+    return l.freq() > r.freq();
 }
 
 } // namespace pinyin_ime

@@ -17,82 +17,57 @@ namespace pinyin_ime {
  */
 class DictItem {
 public:
-    /**
-     * \brief 构造函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem(std::string chinese, std::string pinyin, uint32_t freq);
-    /**
-     * \brief 构造函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem(std::string_view chinese, std::string_view pinyin, uint32_t freq);
-    /**
-     * \brief 拷贝构造函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem(const DictItem &other);
-    /**
-     * \brief 移动构造函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem(DictItem &&other);
-    /**
-     * \brief 拷贝赋值函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem& operator=(const DictItem &other);
-    /**
-     * \brief 移动赋值函数。
-     * \throws std::exception 如果发生错误。
-     */
     DictItem& operator=(DictItem &&other);
 
     /**
-     * \brief 获取中文。
-     * 
-     * \return 中文数据的 string_view，DictItem发生变化（set_chinese()、移动）后失效。
+     * \brief 获取词典项的中文。
+     * \note string_view 在词典项发生变化（set_chinese()、移动）后失效。
+     * \return 词典项的中文数据的 string_view，词典项发生变化（set_chinese()、移动）后失效。
      */
     std::string_view chinese() const noexcept;
 
     /**
-     * \brief 设置中文。
+     * \brief 设置词典项的中文。
      */
     void set_chinese(std::string chinese) noexcept;
 
     /**
-     * \brief 获取拼音。
-     * 
-     * \return 拼音数据的 string_view，DictItem 发生变化（set_pinyin()、移动）后失效。
+     * \brief 获取词典项的拼音。
+     * \note string_view 在词典项发生变化（set_pinyin()、移动）后失效。
+     * \return 词典项的拼音数据的 string_view。
      */
     std::string_view pinyin() const noexcept;
 
     /**
-     * \brief 设置拼音。
-     * \throws std::exception 如果发生错误。
+     * \brief 设置词典项的拼音。
      */
     void set_pinyin(std::string pinyin);
 
     /**
-     * \brief 获取频率（优先级）。
+     * \brief 获取词典项的频率（优先级）。
      */
     uint32_t freq() const noexcept;
 
     /**
-     * \brief 设置频率（优先级）。
+     * \brief 设置词典项的频率（优先级）。
      */
     void set_freq(uint32_t freq) noexcept;
 
     /**
-     * \brief 获取拼音音节的首字母缩略词，每次调用时临时计算。
-     * \throws std::exception 如果发生错误。
+     * \brief 获取词典项的拼音音节的首字母缩略词，每次调用时临时计算。
+     * \return 词典项的拼音音节的首字母缩略词的字符串。
      */
     std::string acronym() const;
 
     /**
-     * \brief 获取拼音的音节列表。
-     * \return vector，包含逐个音节的 string_view，
-     *         string_view 在 DictItem 发生变化（set_pinyin()、移动）后失效。
+     * \brief 获取词典项的拼音的音节列表。
+     * \note string_view 在词典项发生变化（set_pinyin()、移动）后失效。
+     * \return vector，包含词典项的拼音的逐个音节的 string_view。
      */
     const std::vector<std::string_view>& syllables() const noexcept;
 private:

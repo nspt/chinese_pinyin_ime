@@ -30,3 +30,18 @@
 *.exe
 *.out
 *.app
+
+# IDE / language servers (clangd index, etc.)
+.cache/
+
+# CMake / Ninja — build trees and generated metadata
+build*/
+cmake-build-*/
+out/
+[Bb]uild/
+compile_commands.json
+
+# Windows debug symbols
+*.pdb
+*.ilk
+*.exp

@@ -15,12 +15,12 @@ void IME::load(std::string_view dict_file)
 
     std::ifstream file{ dict_file.data(), std::ios::binary };
     if (!file)
-        throw std::runtime_error{ "Open file failed: "s + std::strerror(errno) };
+        throw std::runtime_error{ "Open file failed: "s + std::error_code(errno, std::generic_category()).message() };
     // remove BOM
     uint8_t bom[3]{ 0 };
     file.read(reinterpret_cast<char*>(bom), 3);
     if (file.gcount() != 3)
-        throw std::runtime_error{ "Read file failed: "s + std::strerror(errno) };
+        throw std::runtime_error{ "Read file failed: "s + std::error_code(errno, std::generic_category()).message() };
     if (bom[0] != 0xef || bom[1] != 0xbb || bom[2] != 0xbf)
         file.seekg(0);
 
@@ -35,7 +35,7 @@ void IME::save(std::string_view dict_file) const
 
     std::ofstream file{ dict_file.data(), std::ios::binary | std::ios::trunc };
     if (!file)
-        throw std::runtime_error{ "Open file failed: "s + std::strerror(errno) };
+        throw std::runtime_error{ "Open file failed: "s + std::error_code(errno, std::generic_category()).message() };
 
     auto end_iter{ m_dict_trie.end() };
     for (auto dict_it{ m_dict_trie.begin() }; dict_it != end_iter; ++dict_it) {

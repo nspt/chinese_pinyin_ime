@@ -79,6 +79,7 @@ void DictItem::set_pinyin(std::string pinyin)
 std::string DictItem::acronym() const
 {
     std::string str;
+    str.reserve(m_syllables.size());
     for (auto &s : m_syllables) {
         str.push_back(s.front());
     }
