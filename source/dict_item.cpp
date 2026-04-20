@@ -10,17 +10,13 @@ DictItem::DictItem(std::string chinese, std::string pinyin, uint32_t freq)
     build_syllables_view();
 }
 
-DictItem::DictItem(std::string_view chinese, std::string_view pinyin, uint32_t freq)
-    : m_chinese{ chinese }, m_pinyin{ pinyin }, m_freq{ freq }
-{
-    build_syllables_view();
-}
-
 DictItem::DictItem(const DictItem &other)
     : m_chinese{ other.m_chinese }, m_pinyin{ other.m_pinyin }, m_freq{ other.m_freq }
 {
+    m_syllables.reserve(other.m_syllables.size());
+    auto p = other.m_pinyin.data();
     for (auto &s : other.m_syllables) {
-        auto offset{ s.data() - other.m_pinyin.data() };
+        auto offset{ s.data() - p };
         m_syllables.push_back(std::string_view{ m_pinyin.data() + offset, s.size() });
     }
 }
@@ -105,14 +101,49 @@ void DictItem::build_syllables_view()
 {
     if (!m_syllables.empty())
         m_syllables.clear();
-
-    auto syllables = m_pinyin | std::views::split(PinYin::s_delim) | std::views::transform([](auto &&rng){
-        return std::string_view(std::addressof(*rng.begin()), std::ranges::distance(rng));
-    });
+    auto syllables = m_pinyin
+        | std::views::split(PinYin::s_delim)
+        | std::views::transform([](auto &&rng) -> std::string_view {
+            return std::string_view(std::addressof(*rng.begin()), std::ranges::distance(rng));
+        });
     for (auto &&s : syllables) {
         if (!s.empty())
-            m_syllables.push_back(s);
+            m_syllables.push_back(std::move(s));
     }
+}
+
+std::strong_ordering DictItem::operator<=>(const DictItem &other) const noexcept
+{
+    // 1. 比较音节首字母缩略词，若不同（不属于同一个 Dict），缩略词排前者优先级高
+    {
+        auto this_acronym = acronym();
+        auto other_acronym = other.acronym();
+        if (this_acronym != other_acronym)
+        {
+            return this_acronym <=> other_acronym;
+        }
+    }
+
+    // 2. 比较频率，若不同，频率高者优先级高
+    if (m_freq != other.m_freq)
+    {
+        if (m_freq > other.m_freq)
+            return std::strong_ordering::less;
+        if (m_freq < other.m_freq)
+            return std::strong_ordering::greater;
+    }
+
+    // 3. 逐音节比较字典序
+    for (size_t i{ 0 }; i < m_syllables.size(); ++i) {
+        auto r = m_syllables[i] <=> other.m_syllables[i];
+        if (r != std::strong_ordering::equal)
+            return r;
+    }
+
+    // 4. 按“字典序”比较 pinyin 和 chinese
+    if (auto r = m_pinyin <=> other.m_pinyin; r != std::strong_ordering::equal)
+        return r;
+    return m_chinese <=> other.m_chinese;
 }
 
 } // namespace pinyin_ime

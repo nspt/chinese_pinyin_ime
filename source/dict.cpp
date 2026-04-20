@@ -2,7 +2,7 @@
 
 namespace pinyin_ime {
 
-bool Dict::add_item(DictItem item)
+bool Dict::add(DictItem item)
 {
     std::string item_acronym{ item.acronym() };
     if (m_items.empty()) {
@@ -21,15 +21,12 @@ bool Dict::add_item(DictItem item)
     auto end_iter{ m_items.end() };
     auto insert_iter{ end_iter };
     for (auto cur_iter{ begin_iter }; cur_iter != end_iter; ++cur_iter) {
-        if (insert_iter == end_iter && !item_comp(*cur_iter, item)) {
+        if (item < *cur_iter) {
             insert_iter = cur_iter;
-        }
-        if (cur_iter->chinese() == item.chinese()
-            && cur_iter->pinyin() == item.pinyin()) {
-            return false;
+            break;
         }
     }
-    insert_iter = m_items.insert(insert_iter, std::move(item));
+    m_items.insert(insert_iter, std::move(item));
     return true;
 }
 
@@ -40,7 +37,7 @@ std::string_view Dict::acronym() const noexcept
 
 void Dict::sort()
 {
-    std::sort(m_items.begin(), m_items.end(), item_comp);
+    std::sort(m_items.begin(), m_items.end());
 }
 
 std::vector<DictItem>::const_iterator Dict::begin() const noexcept
@@ -163,28 +160,6 @@ uint32_t Dict::suggest_inc_freq(size_t idx) const noexcept
     if (idx >= m_items.size())
         return 0;
     return 1; // TODO
-}
-
-bool Dict::item_comp(const DictItem &l, const DictItem &r) noexcept
-{
-    auto &l_syllables{ l.syllables() };
-    auto &r_syllables{ r.syllables() };
-    size_t l_s_size{ l_syllables.size() };
-    size_t r_s_size{ r_syllables.size() };
-
-    if (l_s_size < r_s_size)
-        return true;
-    if (l_s_size > r_s_size)
-        return false;
-
-    for (size_t i{ 0 }; i < l_s_size; ++i) {
-        if (l_syllables[i] == r_syllables[i])
-            continue;
-        if (l_syllables[i].size() != r_syllables[i].size())
-            return l_syllables[i].size() < r_syllables[i].size();
-        return l_syllables[i] < r_syllables[i];
-    }
-    return l.freq() > r.freq();
 }
 
 } // namespace pinyin_ime

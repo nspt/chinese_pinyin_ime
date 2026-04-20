@@ -29,14 +29,14 @@ public:
      * \throws std::logic_error 若 DictItem 的 acronym 与词典不同。
      *         std::exception 如果发生错误。
      */
-    bool add_item(DictItem item);
+    bool add(DictItem item);
 
     /**
      * \brief 移除一个满足参数 Pred 的 DictItem。
      * \throws std::exception 如果发生错误。
      */
     template<class Pred>
-    void erase_item(Pred pred)
+    void erase(Pred pred)
     {
         std::erase_if(m_items, pred);
     }
@@ -132,21 +132,6 @@ private:
     std::vector<DictItem> m_items;
     // 词典 acronym，取自首个加入的 DictItem。
     std::string m_acronym;
-
-    /**
-     * \brief DictItem 排序比较器。
-     * \details 比较策略为：
-     *          1. 若音节数不同，则音节少者优先级高。
-     *          2. 若音节数相同，逐一比较单个音节：
-     *                 1. 若单个音节长度不同，则单个音节短者优先级高。
-     *                 2. 若单个音节长度一致，则按字典序比较单个音节，字典序排前者优先级高。
-     *          3. 若音节列表完全一致，则 freq 大者优先级高。
-     * \param l 参与比较的 DictItem 的引用。
-     * \param r 参与比较的 DictItem 的引用。
-     * \return 若 l 优先级高于或等于 r，返回 true，否则返回 false。
-     * \throws std::exception 如果发生错误。
-     */
-    static bool item_comp(const DictItem &l, const DictItem &r) noexcept;
 };
 
 } // namespace pinyin_ime

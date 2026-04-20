@@ -50,39 +50,13 @@ public:
         TokenType m_type{ TokenType::Invalid };
         std::string_view m_token;
     };
-    /**
-     * \brief 连续多个 Token 组成的范围。
-     */
     using TokenSpan = std::span<const Token>;
 
-    /**
-     * \brief 构造函数。
-     * \throws std::exception 如果发生错误。
-     */
     PinYin();
-
-    /**
-     * \brief 构造函数。
-     * \param str 初始化拼音字符串。
-     * \throws std::exception 如果发生错误。
-     */
     PinYin(std::string str);
-
-    /**
-     * \brief 禁止拷贝构造。
-     */
     PinYin(const PinYin&) = delete;
-    /**
-     * \brief 禁止移动构造。
-     */
     PinYin(PinYin&&) = delete;
-    /**
-     * \brief 禁止拷贝赋值。
-     */
     PinYin& operator=(const PinYin&) = delete;
-    /**
-     * \brief 禁止移动赋值。
-     */
     PinYin& operator=(PinYin&&) = delete;
 
     /**

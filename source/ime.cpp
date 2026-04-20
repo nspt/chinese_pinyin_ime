@@ -130,7 +130,7 @@ void IME::finish_search(bool inc_freq, bool add_new_sentence)
                 pinyin.push_back(PinYin::s_delim);
         }
         DictItem new_item{ std::move(chinese), std::move(pinyin), 1 };
-        m_dict_trie.add_if_miss(new_item.acronym()).add_item(std::move(new_item));
+        m_dict_trie.add_if_miss(new_item.acronym()).add(std::move(new_item));
     }
     reset_search();
 }
@@ -215,7 +215,7 @@ void IME::add_item_from_line(std::string_view line)
             acronym.push_back(s.front());
         }
     }
-    m_dict_trie.add_if_miss(acronym).add_item(std::move(item));
+    m_dict_trie.add_if_miss(acronym).add(std::move(item));
 }
 
 DictItem IME::line_to_item(std::string_view line)
@@ -250,7 +250,7 @@ DictItem IME::line_to_item(std::string_view line)
     else
         pinyin = std::string_view{ line.begin() + start, line.begin() + end };
 
-    return DictItem{ chinese, pinyin, freq };
+    return DictItem{ std::string{ chinese }, std::string{ pinyin }, freq };
 }
 
 IME::Choice::Choice(PinYin::TokenSpan tokens, Dict &dict, size_t index) noexcept
